@@ -82,14 +82,17 @@ select:focus,input:focus{border-color:var(--accent)}.select-grid{display:grid;gr
 .cert-badge{font-size:9px;border:1px solid #2b654f;background:#143428;color:#d1f4e4;border-radius:999px;padding:4px 7px}
 .uncert-badge{font-size:9px;border:1px solid #665128;background:#2a2415;color:#ffe2aa;border-radius:999px;padding:4px 7px}
 
+
+.repairing{border-color:#655126!important;background:#2a2415!important;color:#ffe5ac!important}
+.repair-mini{font-size:9px;color:#f0c66f;margin-top:5px}
 </style>
 </head>
 <body>
 <div class="app">
 <section class="viewer-pane">
-  <iframe id="api-frame" title="Interactive 3D car viewer" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" allow="autoplay; fullscreen; xr-spatial-tracking" allowfullscreen></iframe>
+  <iframe id="api-frame" title="Interactive 3D car viewer" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" allow="autoplay; fullscreen; xr-spatial-tracking" xr-spatial-tracking execution-while-out-of-viewport execution-while-not-rendered web-share allowfullscreen mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
   <div class="topbar">
-    <div class="brandbox glass"><div class="logo"></div><div><strong>UAE Car Color Studio</strong><small>Garage Pro V9 • auto-repair 3D • realistic paint</small></div></div>
+    <div class="brandbox glass"><div class="logo"></div><div><strong>UAE Car Color Studio</strong><small>Garage Pro V10 • auto-repair 3D • realistic paint</small></div></div>
     <div class="top-actions"><button class="mini-btn hide-mobile" id="reloadCar" type="button">Reset 3D</button><button class="mini-btn" id="snapshotTop" type="button">Current photo</button></div>
   </div>
   <div class="helper glass">Drag / swipe to rotate • Pinch / wheel to zoom • Full 360° viewer</div>
@@ -263,6 +266,13 @@ const searchCache=new Map();
 let activeFilter="all", bridge=null, api=null, materials=[], selectedMaterialIds=new Set(), currentColor="#20242a";
 let candidateModels=[], candidateIndex=0, currentResolved=null, loadSerial=0;
 let viewerLoadTimer=null, recoveryInProgress=false, recoveryAttempts=0;
+const sourceRetryCount=new Map();
+const successfulSourceCache=new Map();
+const REPAIRED_SOURCE_KEY="uae-car-studio-repaired-sources-v10";
+let persistedRepairSources={};
+try{persistedRepairSources=JSON.parse(localStorage.getItem(REPAIRED_SOURCE_KEY)||"{}")}catch(e){persistedRepairSources={}}
+const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
+const initialTextureLimit=isIOS?2048:4096;
 let paintFrame=0, paintRevision=0, currentFinish="gloss";
 let garageSafeOnly=true, calibrationMode=false, viewerReady=false;
 let meshLoad=0, textureLoad=0, originalMaterialStates=new Map();
@@ -337,39 +347,53 @@ function currentCar(){
 }
 
 async function resolveCar3D(car, forceSearch=false){
-  if(!forceSearch){
-    const known=sourceCandidatesForCar(car);
-    if(known.length)return known;
+  const cacheId=nrm(`${car.brand}|${car.model}|${car.year}|${car.trim}`);
+  const repaired=persistedRepairSources[cacheId];
+  const known=sourceCandidatesForCar(car);
+  const combinedKnown=[];
+  if(repaired?.uid && !runtimeFailedUIDs.has(repaired.uid)){
+    combinedKnown.push({uid:repaired.uid,name:repaired.name||`${car.brand} ${car.model} — repaired source`,score:1200,source:`https://sketchfab.com/models/${repaired.uid}`,curated:false,repairSource:true,persisted:true});
   }
-  const cacheKey=nrm(car.query);
-  if(!forceSearch && searchCache.has(cacheKey)) return searchCache.get(cacheKey);
+  known.forEach(x=>{if(!combinedKnown.some(y=>y.uid===x.uid))combinedKnown.push(x)});
+  if(!forceSearch && combinedKnown.length)return combinedKnown;
 
-  loadingText.textContent=`Finding a 3D ${car.brand} ${car.model}…`;
-  statusEl.className="status";
-  statusEl.textContent="Searching the public 3D catalog for the closest matching vehicle…";
-  const q=car.query || `${car.brand} ${car.model} ${car.year} ${car.trim}`;
-  const url=`https://api.sketchfab.com/v3/search?type=models&count=24&q=${encodeURIComponent(q)}`;
-  let res;
-  try{
-    res=await fetch(url,{method:"GET",mode:"cors",cache:"no-store"});
-  }catch(e){
-    throw new Error("SEARCH_NETWORK");
+  const queries=unique([
+    car.query || `${car.brand} ${car.model} ${car.year} ${car.trim}`,
+    `${car.brand} ${car.model} ${car.year}`,
+    `${car.brand} ${car.model}`,
+    `${car.model} ${car.trim}`
+  ].filter(Boolean));
+
+  statusEl.className="status repairing";
+  statusEl.textContent=`Auto-repair: searching multiple 3D sources for ${car.brand} ${car.model}…`;
+  loadingText.textContent=`Repairing ${car.brand} ${car.model} source…`;
+
+  let networkFailures=0;
+  const merged=new Map();
+  for(const q of queries){
+    try{
+      const url=`https://api.sketchfab.com/v3/search?type=models&count=48&q=${encodeURIComponent(q)}`;
+      const res=await fetch(url,{method:"GET",mode:"cors",cache:"no-store"});
+      if(!res.ok){networkFailures++;continue;}
+      const data=await res.json();
+      (data.results||[]).filter(x=>x&&x.uid&&x.isPublished!==false&&!runtimeFailedUIDs.has(x.uid)).forEach(x=>{
+        const item={uid:x.uid,name:x.name||"Sketchfab model",source:`https://sketchfab.com/models/${x.uid}`,likeCount:x.likeCount||0,viewCount:x.viewCount||0,score:scoreCandidate(x,car),curated:false,repairSource:true};
+        const prev=merged.get(item.uid);
+        if(!prev||item.score>prev.score)merged.set(item.uid,item);
+      });
+    }catch(e){networkFailures++;}
   }
-  if(!res.ok) throw new Error("SEARCH_HTTP_"+res.status);
-  const data=await res.json();
-  const found=(data.results||[]).filter(x=>x&&x.uid&&x.isPublished!==false);
-  const scored=found.map(x=>({
-    uid:x.uid,
-    name:x.name||"Sketchfab model",
-    source:`https://sketchfab.com/models/${x.uid}`,
-    likeCount:x.likeCount||0,
-    score:scoreCandidate(x,car),
-    curated:false
-  })).sort((a,b)=>b.score-a.score);
-  const good=scored.filter(x=>x.score>=5).slice(0,8);
-  const out=good.length?good:scored.slice(0,5);
-  searchCache.set(cacheKey,out);
-  return out;
+
+  const scored=[...merged.values()].sort((a,b)=>b.score-a.score);
+  const strict=scored.filter(x=>x.score>=10).slice(0,12);
+  const acceptable=scored.filter(x=>x.score>=6).slice(0,12);
+  const out=strict.length?strict:(acceptable.length?acceptable:scored.slice(0,8));
+  const final=[];
+  combinedKnown.forEach(x=>{if(!runtimeFailedUIDs.has(x.uid)&&!final.some(y=>y.uid===x.uid))final.push(x)});
+  out.forEach(x=>{if(!final.some(y=>y.uid===x.uid))final.push(x)});
+  if(final.length)return final;
+  if(networkFailures===queries.length)throw new Error("SEARCH_NETWORK");
+  throw new Error("NO_MATCH");
 }
 function scoreCandidate(x,car){
   const name=nrm(x.name||"");
@@ -382,7 +406,8 @@ function scoreCandidate(x,car){
   trim.split(" ").filter(t=>t.length>3).forEach(t=>{if(name.includes(t))score+=1.2});
   if(name.includes(nrm(car.model)))score+=8;
   if(name.includes(nrm(`${car.brand} ${car.model}`)))score+=8;
-  if(/wheel|rim|seat|interior only|hot wheels|toy|lego|police|wreck|damaged|ps1|low poly|low-poly/.test(name))score-=8;
+  if(/wheel|rim|seat|interior only|hot wheels|toy|lego|police|wreck|damaged|ps1|low poly|low-poly|body kit only|parts only|interior|chassis only/.test(name))score-=14;
+  if(name.includes(nrm(car.brand)) && name.includes(nrm(car.model))) score+=10;
   score+=Math.min(3.5,Math.log10(1+(x.likeCount||0)));
   score+=Math.min(2.5,Math.log10(1+(x.viewCount||0))/2);
   return score;
@@ -414,14 +439,13 @@ async function loadSelectedCar(forceSearch=false){
   }catch(err){
     if(serial!==loadSerial)return;
     loading.classList.remove("show");
-    iframe.src="";
-    statusEl.className="status err";
+    statusEl.className="status warn";
     if(String(err.message)==="SEARCH_NETWORK"){
-      statusEl.textContent="3D search could not connect from this local browser. Curated cars still work. For the full auto-search catalog, host this HTML on GitHub Pages or open it from an HTTPS website.";
+      statusEl.textContent="Auto-repair could not reach the public 3D search service. The car remains in the database; retrying when you select it again or tap Re-find 3D.";
     }else if(String(err.message)==="NO_MATCH"){
-      statusEl.textContent="No sufficiently close public 3D model was found for this exact car yet. Try another year/trim or choose another vehicle.";
+      statusEl.textContent="Auto-repair did not find a safe matching model yet. The car remains available and is not deleted.";
     }else{
-      statusEl.textContent="The online 3D search failed. Try Re-find 3D or select another vehicle.";
+      statusEl.textContent="Auto-repair is still looking for another compatible 3D source for this car.";
     }
   }
 }
@@ -446,7 +470,7 @@ function loadCandidate(index,serial=loadSerial){
     if(serial===loadSerial && !viewerReady){
       recoverFrom3DFailure("The selected 3D model did not finish loading in time.");
     }
-  },30000);
+  },isIOS?55000:40000);
 
   if(typeof Sketchfab==="undefined"){
     loading.classList.remove("show");
@@ -461,7 +485,7 @@ function loadCandidate(index,serial=loadSerial){
     preload:0,
     animation_autoplay:0,
     autospin:0,
-    max_texture_size:4096,
+    max_texture_size:initialTextureLimit,
     ui_infos:0,ui_annotations:0,ui_help:0,ui_stop:0,
     ui_inspector:0,ui_settings:1,ui_controls:1,ui_fullscreen:1,ui_vr:0,ui_animations:0,
     success:function(newApi){
@@ -500,7 +524,16 @@ function loadCandidate(index,serial=loadSerial){
         // that otherwise start automatically and can make the car look exploded or incomplete.
         if(api.pause) api.pause(()=>{});
         if(api.seekTo) api.seekTo(0,()=>{});
-        if(api.setTextureQuality) api.setTextureQuality("hd",()=>{});
+        if(api.setTextureQuality) api.setTextureQuality(isIOS?"sd":"hd",()=>{});
+        if(currentResolved?.uid){
+          sourceRetryCount.delete(currentResolved.uid);
+          successfulSourceCache.set(nrm(`${car.brand}|${car.model}|${car.year}|${car.trim}`),currentResolved.uid);
+          if(currentResolved.repairSource && !currentResolved.curated){
+            const key=nrm(`${car.brand}|${car.model}|${car.year}|${car.trim}`);
+            persistedRepairSources[key]={uid:currentResolved.uid,name:currentResolved.name};
+            try{localStorage.setItem(REPAIRED_SOURCE_KEY,JSON.stringify(persistedRepairSources))}catch(e){}
+          }
+        }
         if(api.setShadingStyle) api.setShadingStyle("pbr",{type:"lit"},()=>{});
         setTimeout(()=>{
           if(api && api.focusOnVisibleGeometries) api.focusOnVisibleGeometries(()=>{});
@@ -520,8 +553,19 @@ function loadCandidate(index,serial=loadSerial){
     error:function(){
       if(serial!==loadSerial)return;
       if(viewerLoadTimer){clearTimeout(viewerLoadTimer);viewerLoadTimer=null;}
-      if(currentResolved?.uid) runtimeFailedUIDs.add(currentResolved.uid);
-      recoverFrom3DFailure("This 3D source is unavailable for embedding.");
+      const uid=currentResolved?.uid;
+      const tries=uid?(sourceRetryCount.get(uid)||0):0;
+      if(uid && tries<2){
+        sourceRetryCount.set(uid,tries+1);
+        statusEl.className="status repairing";
+        statusEl.textContent=`3D source connection failed — automatic retry ${tries+1}/2…`;
+        loading.classList.add("show");
+        loadingText.textContent="Retrying 3D source with compatibility settings…";
+        setTimeout(()=>loadCandidate(candidateIndex,serial),900+(tries*900));
+        return;
+      }
+      if(uid) runtimeFailedUIDs.add(uid);
+      recoverFrom3DFailure("This 3D source could not initialize after automatic retries.");
     }
   });
 }
@@ -531,27 +575,28 @@ async function recoverFrom3DFailure(reason){
   recoveryInProgress=true;
   const car=currentCar();
 
-  if(candidateModels.length>1 && recoveryAttempts<candidateModels.length-1){
+  // Try every already-known candidate before doing another network search.
+  const nextIndex=candidateModels.findIndex((x,i)=>i!==candidateIndex&&!runtimeFailedUIDs.has(x.uid));
+  if(nextIndex>=0){
     recoveryAttempts++;
-    statusEl.className="status warn";
-    statusEl.textContent=`${reason} Trying another 3D model automatically…`;
+    statusEl.className="status repairing";
+    statusEl.textContent=`${reason} Switching automatically to another source…`;
     recoveryInProgress=false;
-    loadCandidate(candidateIndex+1,loadSerial);
+    loadCandidate(nextIndex,loadSerial);
     return;
   }
 
   try{
-    statusEl.className="status warn";
-    statusEl.textContent=`${reason} Re-searching for another close 3D match…`;
+    statusEl.className="status repairing";
+    statusEl.textContent=`${reason} Auto-repair is searching wider for a replacement…`;
     loading.classList.add("show");
-    loadingText.textContent=`Finding another ${car.brand} ${car.model} model…`;
+    loadingText.textContent=`Finding a replacement ${car.brand} ${car.model} model…`;
     const fresh=await resolveCar3D(car,true);
     const used=new Set(candidateModels.map(x=>x.uid));
-    const extras=fresh.filter(x=>!used.has(x.uid));
+    const extras=fresh.filter(x=>!used.has(x.uid)&&!runtimeFailedUIDs.has(x.uid));
     if(extras.length){
       const firstNewIndex=candidateModels.length;
       candidateModels=candidateModels.concat(extras);
-      recoveryAttempts++;
       alternateBtn.disabled=candidateModels.length<2;
       recoveryInProgress=false;
       loadCandidate(firstNewIndex,loadSerial);
@@ -561,9 +606,8 @@ async function recoverFrom3DFailure(reason){
 
   recoveryInProgress=false;
   loading.classList.remove("show");
-  if(currentResolved?.uid) runtimeFailedUIDs.add(currentResolved.uid);
-  statusEl.className="status err";
-  statusEl.textContent="This source failed. The car remains in the database; use Re-find 3D to search for another source.";
+  statusEl.className="status warn";
+  statusEl.textContent="Auto-repair has not found a working source yet. This car remains in the database; tap Re-find 3D to retry the repair search.";
 }
 
 function readMaterials(){
@@ -1002,14 +1046,22 @@ document.getElementById("goSearch").addEventListener("click",selectByQuickSearch
 document.getElementById("garageSafeOnly").addEventListener("change",e=>{
   garageSafeOnly=e.target.checked;
   statusEl.className="status";
-  statusEl.textContent=garageSafeOnly?"Auto-repair is ON: failed 3D sources will be replaced automatically.":"Auto-repair is OFF: the currently selected source will be used until you request another.";
+  statusEl.textContent=garageSafeOnly?"Auto-repair is ON: every car stays in the database; failed sources are retried and replaced automatically.":"Auto-repair is OFF: the currently selected source will be used until you request another.";
 });
 document.getElementById("startCalibration").addEventListener("click",startCalibration);
 document.getElementById("clearCalibration").addEventListener("click",clearCalibration);
 
 document.getElementById("quickSearch").addEventListener("keydown",e=>{if(e.key==="Enter")selectByQuickSearch()});
 document.getElementById("tryAlternate").addEventListener("click",()=>loadCandidate(candidateIndex+1));
-document.getElementById("refind3D").addEventListener("click",()=>{if(viewerLoadTimer)clearTimeout(viewerLoadTimer);loadSelectedCar(true)});
+document.getElementById("refind3D").addEventListener("click",()=>{
+  if(viewerLoadTimer)clearTimeout(viewerLoadTimer);
+  const car=currentCar();
+  sourceCandidatesForCar(car).forEach(x=>runtimeFailedUIDs.delete(x.uid));
+  sourceRetryCount.clear();
+  statusEl.className="status repairing";
+  statusEl.textContent="Restarting Auto-repair search…";
+  loadSelectedCar(true);
+});
 document.getElementById("reloadCar").addEventListener("click",()=>currentResolved?loadCandidate(candidateIndex):loadSelectedCar());
 document.querySelectorAll(".swatch").forEach(s=>s.addEventListener("click",()=>setColor(s.dataset.color)));
 document.getElementById("paintColor").addEventListener("input",e=>setColor(e.target.value));
