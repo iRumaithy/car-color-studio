@@ -16,7 +16,9 @@
 body{min-height:100dvh}button,input,select{font:inherit}button{cursor:pointer}
 .app{display:grid;grid-template-columns:minmax(0,1fr) 410px;min-height:100dvh}
 .viewer-pane{position:relative;min-height:100dvh;overflow:hidden;background:radial-gradient(circle at 50% 22%,rgba(255,255,255,.1),transparent 32%),linear-gradient(180deg,#1a2028,#0a0e13 70%,#090c10)}
-#api-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#11151a}
+ .viewer-stack{position:absolute;inset:0;background:#11151a}
+.viewer-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#11151a;opacity:0;pointer-events:none;z-index:1;transition:opacity .22s ease}
+.viewer-frame.active{opacity:1;pointer-events:auto;z-index:2}
 .topbar{position:absolute;top:max(15px,env(safe-area-inset-top));left:16px;right:16px;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;pointer-events:none}
 .glass{background:rgba(10,13,17,.76);border:1px solid rgba(255,255,255,.10);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 .brandbox{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:14px;pointer-events:auto}
@@ -26,8 +28,8 @@ body{min-height:100dvh}button,input,select{font:inherit}button{cursor:pointer}
 .btn,.mini-btn{border:1px solid var(--line);color:var(--text);background:rgba(15,20,26,.92);border-radius:11px;padding:10px 12px}
 .btn:hover,.mini-btn:hover{border-color:#465566}.btn:disabled{opacity:.45;cursor:not-allowed}
 .helper{position:absolute;left:50%;bottom:max(17px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:5;border-radius:999px;padding:8px 12px;color:#dce3eb;font-size:11px;white-space:nowrap;pointer-events:none}
-.loading{position:absolute;inset:0;z-index:4;display:none;place-items:center;background:rgba(6,8,11,.63);backdrop-filter:blur(4px)}.loading.show{display:grid}
-.loader-card{padding:18px 20px;border-radius:15px;text-align:center;min-width:210px}.spinner{width:40px;height:40px;margin:0 auto 10px;border-radius:50%;border:3px solid rgba(255,255,255,.14);border-top-color:#fff;animation:spin .8s linear infinite}
+.loading{position:absolute;inset:0;z-index:4;display:none;place-items:end center;padding-bottom:48px;background:transparent;backdrop-filter:none;pointer-events:none}.loading.show{display:grid}
+.loader-card{padding:12px 16px;border-radius:15px;text-align:center;min-width:210px;background:rgba(10,13,17,.82);box-shadow:0 8px 24px rgba(0,0,0,.24)}.spinner{width:40px;height:40px;margin:0 auto 10px;border-radius:50%;border:3px solid rgba(255,255,255,.14);border-top-color:#fff;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}.loader-card div{font-size:12px;color:#dce4ed}
 .panel{background:var(--panel);border-left:1px solid var(--line);padding:20px;overflow:auto;max-height:100dvh}
 h1{font-size:20px;line-height:1.2;margin:0 0 5px}.lead{font-size:12px;line-height:1.5;color:var(--muted);margin:0 0 18px}
@@ -42,7 +44,7 @@ select:focus,input:focus{border-color:var(--accent)}.select-grid{display:grid;gr
 .filters{display:flex;flex-wrap:wrap;gap:6px;margin:9px 0 11px}.filter-btn{border:1px solid var(--line);background:#0d1217;color:#cbd6e0;border-radius:999px;padding:7px 9px;font-size:9px}.filter-btn.active{border-color:var(--accent);background:#132a40;color:#eef7ff}
 .car-card{margin-top:11px;border:1px solid var(--line);border-radius:13px;background:#0d1217;padding:12px}.car-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
 .car-name{font-size:14px;font-weight:700}.car-meta{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.4}.source-link{font-size:10px;color:#bcdcff;text-decoration:none;border:1px solid #294964;border-radius:8px;padding:5px 7px;white-space:nowrap}
-.status{margin-top:9px;border:1px solid var(--line);border-radius:10px;background:#0c1116;color:var(--muted);padding:9px 10px;font-size:10px;line-height:1.45}.status.ok{border-color:#255c49;color:#c7f6e3;background:#10251e}.status.warn{border-color:#665128;color:#ffe7b7;background:#2a2415}.status.err{border-color:#6f3434;color:#ffd1d1;background:#2c1717}
+.status{margin-top:9px;border:1px solid var(--line);border-radius:10px;background:#0c1116;color:var(--muted);padding:9px 10px;font-size:10px;line-height:1.45}.status.ok{border-color:#255c49;color:#c7f6e3;background:#10251e}.status.warn{border-color:#665128;color:#ffe7b7;background:#2a2415}.status.err{border-color:#665128;color:#ffe7b7;background:#2a2415}
 .alt-row{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
 .swatches{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:12px}.swatch{aspect-ratio:1;border-radius:50%;border:2px solid rgba(255,255,255,.17);background:var(--c);padding:0;position:relative}.swatch.active:after{content:"";position:absolute;inset:-5px;border:2px solid var(--accent);border-radius:50%}
 .color-row{display:grid;grid-template-columns:52px 1fr;gap:9px;align-items:center}input[type="color"]{width:52px;height:42px;border:1px solid var(--line);background:var(--panel3);border-radius:10px;padding:2px}
@@ -90,9 +92,12 @@ select:focus,input:focus{border-color:var(--accent)}.select-grid{display:grid;gr
 <body>
 <div class="app">
 <section class="viewer-pane">
-  <iframe id="api-frame" title="Interactive 3D car viewer" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" allow="autoplay; fullscreen; xr-spatial-tracking" xr-spatial-tracking execution-while-out-of-viewport execution-while-not-rendered web-share allowfullscreen mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+  <div class="viewer-stack" aria-label="3D car preview">
+    <iframe id="api-frame-a" class="viewer-frame active" title="Interactive 3D car viewer" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" allow="autoplay; fullscreen; xr-spatial-tracking" xr-spatial-tracking execution-while-out-of-viewport execution-while-not-rendered web-share allowfullscreen mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+    <iframe id="api-frame-b" class="viewer-frame" title="3D car loading buffer" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" allow="autoplay; fullscreen; xr-spatial-tracking" xr-spatial-tracking execution-while-out-of-viewport execution-while-not-rendered web-share allowfullscreen mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+  </div>
   <div class="topbar">
-    <div class="brandbox glass"><div class="logo"></div><div><strong>UAE Car Color Studio</strong><small>Garage Pro V10 • auto-repair 3D • realistic paint</small></div></div>
+    <div class="brandbox glass"><div class="logo"></div><div><strong>UAE Car Color Studio</strong><small>Garage Pro V11 • stable preview • auto-paint</small></div></div>
     <div class="top-actions"><button class="mini-btn hide-mobile" id="reloadCar" type="button">Reset 3D</button><button class="mini-btn" id="snapshotTop" type="button">Current photo</button></div>
   </div>
   <div class="helper glass">Drag / swipe to rotate • Pinch / wheel to zoom • Full 360° viewer</div>
@@ -112,7 +117,7 @@ select:focus,input:focus{border-color:var(--accent)}.select-grid{display:grid;gr
     <div class="section-head"><strong>1. Real car database</strong><span class="badge uae-badge">🇦🇪 UAE FOCUSED</span></div>
     <label class="safe-toggle">
       <input id="garageSafeOnly" type="checkbox" checked>
-      Auto-repair 3D sources — keep all cars and switch source if one fails
+      Stable Auto‑Repair 3D sources — keep all cars and switch source if one fails
     </label>
 
     <label for="quickSearch">Quick search</label>
@@ -241,7 +246,7 @@ const SOURCE_ALTERNATES = {
 };
 const runtimeFailedUIDs = new Set();
 function activeAssetUID(){
-  return currentResolved?.uid || currentCar()?.uid || null;
+  return activeResolved?.uid || currentResolved?.uid || currentCar()?.uid || null;
 }
 function sourceCandidatesForCar(car){
   if(!car?.uid)return [];
@@ -256,7 +261,9 @@ function sourceCandidatesForCar(car){
 }
 
 
-const iframe=document.getElementById("api-frame");
+const iframeA=document.getElementById("api-frame-a");
+const iframeB=document.getElementById("api-frame-b");
+let activeIframe=iframeA;
 const loading=document.getElementById("loading"), loadingText=document.getElementById("loadingText");
 const statusEl=document.getElementById("loadStatus"), detectEl=document.getElementById("paintDetection");
 const brandSelect=document.getElementById("brandSelect"), modelSelect=document.getElementById("modelSelect"), variantSelect=document.getElementById("variantSelect");
@@ -265,6 +272,7 @@ const alternateBtn=document.getElementById("tryAlternate"), materialListEl=docum
 const searchCache=new Map();
 let activeFilter="all", bridge=null, api=null, materials=[], selectedMaterialIds=new Set(), currentColor="#20242a";
 let candidateModels=[], candidateIndex=0, currentResolved=null, loadSerial=0;
+let activeResolved=null, activeCarRecord=null, candidateAttemptToken=0;
 let viewerLoadTimer=null, recoveryInProgress=false, recoveryAttempts=0;
 const sourceRetryCount=new Map();
 const successfulSourceCache=new Map();
@@ -416,19 +424,20 @@ function scoreCandidate(x,car){
 async function loadSelectedCar(forceSearch=false){
   const car=currentCar(); if(!car)return;
   const serial=++loadSerial;
-  api=null;materials=[];selectedMaterialIds.clear();candidateModels=[];candidateIndex=0;currentResolved=null;
+  candidateModels=[];candidateIndex=0;currentResolved=null;
   recoveryInProgress=false;recoveryAttempts=0;
   if(viewerLoadTimer){clearTimeout(viewerLoadTimer);viewerLoadTimer=null;}
-  materialListEl.innerHTML='<div class="note">Materials will appear after the car loads.</div>';
-  detectEl.className="status";detectEl.textContent="Waiting for car materials…";
   alternateBtn.disabled=true;
 
   selectedName.textContent=`${car.brand} ${car.model}`;
   selectedMeta.textContent=`${car.year} • ${car.trim} • ${car.category}${car.popular?" • 🇦🇪 UAE-focused":""}`;
   sourceLink.href="#";
   loading.classList.add("show");
-  loadingText.textContent=`Preparing ${car.brand} ${car.model}…`;
-  statusEl.className="status";statusEl.textContent=car.uid&&!forceSearch?"Loading a curated 3D model…":"Finding the closest 3D model automatically…";
+  loadingText.textContent=api&&viewerReady?`Loading ${car.brand} ${car.model} while keeping the current preview…`:`Preparing ${car.brand} ${car.model}…`;
+  statusEl.className="status repairing";
+  statusEl.textContent=api&&viewerReady
+    ? "Loading the selected car in the background. Your current car stays visible until the replacement is ready."
+    : (car.uid&&!forceSearch?"Loading a curated 3D model…":"Finding the closest 3D model automatically…");
 
   try{
     candidateModels=await resolveCar3D(car,forceSearch);
@@ -440,13 +449,10 @@ async function loadSelectedCar(forceSearch=false){
     if(serial!==loadSerial)return;
     loading.classList.remove("show");
     statusEl.className="status warn";
-    if(String(err.message)==="SEARCH_NETWORK"){
-      statusEl.textContent="Auto-repair could not reach the public 3D search service. The car remains in the database; retrying when you select it again or tap Re-find 3D.";
-    }else if(String(err.message)==="NO_MATCH"){
-      statusEl.textContent="Auto-repair did not find a safe matching model yet. The car remains available and is not deleted.";
-    }else{
-      statusEl.textContent="Auto-repair is still looking for another compatible 3D source for this car.";
-    }
+    const kept=api&&viewerReady?" The previous working car remains visible.":"";
+    if(String(err.message)==="SEARCH_NETWORK") statusEl.textContent="Auto-repair could not reach the 3D search service right now."+kept;
+    else if(String(err.message)==="NO_MATCH") statusEl.textContent="No safe matching 3D source was found yet."+kept;
+    else statusEl.textContent="The selected car is still being repaired."+kept;
   }
 }
 function loadCandidate(index,serial=loadSerial){
@@ -455,117 +461,107 @@ function loadCandidate(index,serial=loadSerial){
   const candidate=candidateModels[candidateIndex];
   currentResolved=candidate;
   const car=currentCar();
+  const attempt=++candidateAttemptToken;
+  const hasActive=!!(api&&viewerReady&&activeResolved);
+  const targetFrame=hasActive?(activeIframe===iframeA?iframeB:iframeA):activeIframe;
+  targetFrame.classList.remove("active");
+  targetFrame.style.opacity="0";
+  targetFrame.style.pointerEvents="none";
+
   sourceLink.href=candidate.source;
-  selectedMeta.textContent=`${car.year} • ${car.trim} • ${candidate.curated?"curated 3D source":"unverified preview"} • HD`;
-  statusEl.className="status";
-  statusEl.textContent=`Loading ${candidate.name}…`;
+  selectedMeta.textContent=`${car.year} • ${car.trim} • ${candidate.curated?"curated 3D source":"auto-repaired source"} • HD`;
+  statusEl.className="status repairing";
+  statusEl.textContent=hasActive?`Loading ${candidate.name} in the background — current preview retained.`:`Loading ${candidate.name}…`;
   loading.classList.add("show");
-  loadingText.textContent=`Loading ${candidate.name}…`;
+  loadingText.textContent=hasActive?`Preparing replacement ${car.brand} ${car.model}…`:`Loading ${candidate.name}…`;
 
-  viewerReady=false; meshLoad=0; textureLoad=0;
-  updateQA();
-
-  if(viewerLoadTimer) clearTimeout(viewerLoadTimer);
+  meshLoad=0; textureLoad=0; updateQA();
+  if(viewerLoadTimer)clearTimeout(viewerLoadTimer);
   viewerLoadTimer=setTimeout(()=>{
-    if(serial===loadSerial && !viewerReady){
-      recoverFrom3DFailure("The selected 3D model did not finish loading in time.");
+    if(serial===loadSerial && attempt===candidateAttemptToken){
+      targetFrame.src="about:blank";
+      recoverFrom3DFailure("This source did not finish loading in time.");
     }
   },isIOS?55000:40000);
 
   if(typeof Sketchfab==="undefined"){
     loading.classList.remove("show");
-    statusEl.className="status err";
-    statusEl.textContent="Official Sketchfab Viewer API could not load. Check the internet connection.";
+    statusEl.className="status warn";
+    statusEl.textContent="The 3D viewer service could not initialize. The last working preview is retained.";
     return;
   }
 
-  const client=new Sketchfab("1.12.1",iframe);
+  const client=new Sketchfab("1.12.1",targetFrame);
   client.init(candidate.uid,{
-    autostart:1,
-    preload:0,
-    animation_autoplay:0,
-    autospin:0,
-    max_texture_size:initialTextureLimit,
-    ui_infos:0,ui_annotations:0,ui_help:0,ui_stop:0,
-    ui_inspector:0,ui_settings:1,ui_controls:1,ui_fullscreen:1,ui_vr:0,ui_animations:0,
+    autostart:1,preload:0,animation_autoplay:0,autospin:0,max_texture_size:initialTextureLimit,
+    ui_infos:0,ui_annotations:0,ui_help:0,ui_stop:0,ui_inspector:0,ui_settings:1,ui_controls:1,ui_fullscreen:1,ui_vr:0,ui_animations:0,
     success:function(newApi){
-      if(serial!==loadSerial)return;
-      api=newApi;
-
-      api.addEventListener("modelLoadProgress",factor=>{
-        meshLoad=Math.max(meshLoad,Number(factor)||0);
-        updateQA();
+      if(serial!==loadSerial||attempt!==candidateAttemptToken)return;
+      newApi.addEventListener("modelLoadProgress",factor=>{
+        if(attempt!==candidateAttemptToken)return;
+        meshLoad=Math.max(meshLoad,Number(factor)||0);updateQA();
       });
-      api.addEventListener("textureLoadProgress",factor=>{
-        textureLoad=Math.max(textureLoad,Number(factor)||0);
-        updateQA();
+      newApi.addEventListener("textureLoadProgress",factor=>{
+        if(attempt!==candidateAttemptToken)return;
+        textureLoad=Math.max(textureLoad,Number(factor)||0);updateQA();
       });
-
-      api.addEventListener("click",info=>{
-        if(!calibrationMode || !info || !info.material)return;
+      newApi.addEventListener("click",info=>{
+        if(api!==newApi||!calibrationMode||!info||!info.material)return;
         const mat=info.material;
         const wasSelected=selectedMaterialIds.has(mat.id);
-        if(wasSelected) selectedMaterialIds.delete(mat.id);
-        else selectedMaterialIds.add(mat.id);
-        persistCalibration();
-        renderMaterials();
-        applyPaint();
+        if(wasSelected)selectedMaterialIds.delete(mat.id);else selectedMaterialIds.add(mat.id);
+        persistCalibration();renderMaterials();applyPaint();
         detectEl.className=selectedMaterialIds.size?"status ok":"status warn";
         detectEl.textContent=`${wasSelected?"Removed":"Added"} material: ${mat.name||"Unnamed material"}. ${selectedMaterialIds.size} body material${selectedMaterialIds.size===1?"":"s"} selected.`;
         updateQA();
       },{pick:"slow"});
-
-      api.addEventListener("viewerready",()=>{
-        if(serial!==loadSerial)return;
-        viewerReady=true;
-        meshLoad=1;
+      newApi.addEventListener("viewerready",()=>{
+        if(serial!==loadSerial||attempt!==candidateAttemptToken)return;
         if(viewerLoadTimer){clearTimeout(viewerLoadTimer);viewerLoadTimer=null;}
-        // Force a stable static vehicle state. Some public assets include door/part animations
-        // that otherwise start automatically and can make the car look exploded or incomplete.
-        if(api.pause) api.pause(()=>{});
-        if(api.seekTo) api.seekTo(0,()=>{});
-        if(api.setTextureQuality) api.setTextureQuality(isIOS?"sd":"hd",()=>{});
-        if(currentResolved?.uid){
-          sourceRetryCount.delete(currentResolved.uid);
-          successfulSourceCache.set(nrm(`${car.brand}|${car.model}|${car.year}|${car.trim}`),currentResolved.uid);
-          if(currentResolved.repairSource && !currentResolved.curated){
+        if(newApi.pause)newApi.pause(()=>{});
+        if(newApi.seekTo)newApi.seekTo(0,()=>{});
+        if(newApi.setTextureQuality)newApi.setTextureQuality(isIOS?"sd":"hd",()=>{});
+        if(newApi.setShadingStyle)newApi.setShadingStyle("pbr",{type:"lit"},()=>{});
+
+        const oldFrame=activeIframe;
+        const oldApi=api;
+        targetFrame.classList.add("active");
+        targetFrame.style.opacity="1";
+        targetFrame.style.pointerEvents="auto";
+        if(oldFrame!==targetFrame){oldFrame.classList.remove("active");oldFrame.style.opacity="0";oldFrame.style.pointerEvents="none";}
+        activeIframe=targetFrame;
+        api=newApi;viewerReady=true;activeResolved=candidate;activeCarRecord={...car};currentResolved=candidate;
+        materials=[];selectedMaterialIds.clear();originalMaterialStates.clear();calibrationMode=false;
+        document.getElementById("startCalibration").classList.remove("cal-mode");
+        document.getElementById("startCalibration").textContent="Calibrate body — tap panels";
+        meshLoad=1;
+
+        if(candidate.uid){
+          sourceRetryCount.delete(candidate.uid);
+          successfulSourceCache.set(nrm(`${car.brand}|${car.model}|${car.year}|${car.trim}`),candidate.uid);
+          if(candidate.repairSource&&!candidate.curated){
             const key=nrm(`${car.brand}|${car.model}|${car.year}|${car.trim}`);
-            persistedRepairSources[key]={uid:currentResolved.uid,name:currentResolved.name};
+            persistedRepairSources[key]={uid:candidate.uid,name:candidate.name};
             try{localStorage.setItem(REPAIRED_SOURCE_KEY,JSON.stringify(persistedRepairSources))}catch(e){}
           }
         }
-        if(api.setShadingStyle) api.setShadingStyle("pbr",{type:"lit"},()=>{});
-        setTimeout(()=>{
-          if(api && api.focusOnVisibleGeometries) api.focusOnVisibleGeometries(()=>{});
-          if(api && api.setFov) api.setFov(38,()=>{});
-        },550);
+        setTimeout(()=>{if(api===newApi&&api.focusOnVisibleGeometries)api.focusOnVisibleGeometries(()=>{});if(api===newApi&&api.setFov)api.setFov(38,()=>{});},550);
         loading.classList.remove("show");
         statusEl.className="status ok";
-        statusEl.textContent=candidate.repairSource
-          ? "3D model repaired using an alternate source. Verifying paint materials…"
-          : "3D model loaded. Verifying body materials and textures…";
-        setTimeout(readMaterials,220);
-        updateQA();
+        statusEl.textContent=candidate.repairSource?"Working 3D source loaded automatically. Paint is ready.":"3D car loaded successfully. Paint is ready.";
+        readMaterials();updateQA();
+        if(oldFrame!==targetFrame)setTimeout(()=>{if(oldFrame!==activeIframe)oldFrame.src="about:blank";},1200);
       });
-
-      if(api.start)api.start();
+      if(newApi.start)newApi.start();
     },
     error:function(){
-      if(serial!==loadSerial)return;
+      if(serial!==loadSerial||attempt!==candidateAttemptToken)return;
       if(viewerLoadTimer){clearTimeout(viewerLoadTimer);viewerLoadTimer=null;}
-      const uid=currentResolved?.uid;
-      const tries=uid?(sourceRetryCount.get(uid)||0):0;
-      if(uid && tries<2){
-        sourceRetryCount.set(uid,tries+1);
-        statusEl.className="status repairing";
-        statusEl.textContent=`3D source connection failed — automatic retry ${tries+1}/2…`;
-        loading.classList.add("show");
-        loadingText.textContent="Retrying 3D source with compatibility settings…";
-        setTimeout(()=>loadCandidate(candidateIndex,serial),900+(tries*900));
-        return;
-      }
-      if(uid) runtimeFailedUIDs.add(uid);
-      recoverFrom3DFailure("This 3D source could not initialize after automatic retries.");
+      targetFrame.src="about:blank";
+      const tries=(sourceRetryCount.get(candidate.uid)||0)+1;sourceRetryCount.set(candidate.uid,tries);
+      if(tries<2){statusEl.className="status repairing";statusEl.textContent="Source connection interrupted — retrying automatically while keeping the current preview.";setTimeout(()=>loadCandidate(candidateIndex,serial),900);return;}
+      runtimeFailedUIDs.add(candidate.uid);
+      recoverFrom3DFailure("This source could not be opened reliably.");
     }
   });
 }
@@ -607,60 +603,72 @@ async function recoverFrom3DFailure(reason){
   recoveryInProgress=false;
   loading.classList.remove("show");
   statusEl.className="status warn";
-  statusEl.textContent="Auto-repair has not found a working source yet. This car remains in the database; tap Re-find 3D to retry the repair search.";
+  statusEl.textContent=(api&&viewerReady)?"Auto-repair has not found the replacement yet. The last working car remains visible; tap Re-find 3D to retry.":"Auto-repair has not found a working source yet. Tap Re-find 3D to retry.";
 }
 
 function readMaterials(){
   if(!api||!api.getMaterialList)return;
+  const boundApi=api;
   api.getMaterialList((err,list)=>{
-    if(err||!Array.isArray(list)){
+    if(boundApi!==api)return;
+    if(err||!Array.isArray(list)||!list.length){
       detectEl.className="status warn";
-      detectEl.textContent="The model loaded, but its material map could not be read. This asset is not garage-certified.";
-      updateQA();
-      return;
+      detectEl.textContent="Paint materials are still loading. Try the color again in a moment, or tap Calibrate body once.";
+      updateQA();return;
     }
-    materials=list;
-    originalMaterialStates.clear();
-    materials.forEach(m=>{
-      try{originalMaterialStates.set(m.id,JSON.parse(JSON.stringify(m)))}catch(e){}
-    });
-
-    const car=currentCar();
+    materials=list;originalMaterialStates.clear();
+    materials.forEach(m=>{try{originalMaterialStates.set(m.id,JSON.parse(JSON.stringify(m)))}catch(e){}});
     const assetUID=activeAssetUID();
     const profile=assetUID?savedCalibrations[assetUID]:null;
     selectedMaterialIds.clear();
-
+    let restoredSaved=false;
     if(profile?.materialNames?.length){
       const wanted=new Set(profile.materialNames);
       materials.forEach(m=>{if(wanted.has(m.name))selectedMaterialIds.add(m.id)});
-      detectEl.className="status ok";
-      detectEl.textContent=`Saved body calibration loaded: ${selectedMaterialIds.size} paint material${selectedMaterialIds.size===1?"":"s"}.`;
-    }else{
-      autoDetectPaint(true);
-      detectEl.className="status warn";
-      detectEl.textContent=`Automatic body guess selected ${selectedMaterialIds.size} material${selectedMaterialIds.size===1?"":"s"}. For garage use, calibrate this car once by tapping its painted body panels.`;
+      restoredSaved=selectedMaterialIds.size>0;
     }
+    if(!restoredSaved)autoDetectPaint(true);
     renderMaterials();
-    // For professional use, an uncalibrated car keeps its original appearance.
-    // Paint is only applied after a saved body calibration, or live while calibration is being edited.
-    if(profile?.materialNames?.length) applyPaint();
+    if(selectedMaterialIds.size){
+      applyPaint();
+      detectEl.className=restoredSaved?"status ok":"status ok";
+      detectEl.textContent=restoredSaved
+        ?`Saved body calibration loaded: ${selectedMaterialIds.size} paint material${selectedMaterialIds.size===1?"":"s"}.`
+        :`Auto-paint ready: ${selectedMaterialIds.size} likely body material${selectedMaterialIds.size===1?"":"s"} selected. You can refine it with Calibrate body.`;
+    }else{
+      detectEl.className="status warn";
+      detectEl.textContent="Automatic paint detection needs one tap: press Calibrate body, then tap a painted panel once.";
+    }
     updateQA();
   });
 }
+function materialPaintScore(m){
+  const name=nrm(m?.name||"");
+  if(!m?.channels)return -999;
+  if(EXCLUDE_WORDS.test(name))return -999;
+  const hasColor=!!(m.channels.AlbedoPBR||m.channels.DiffusePBR||m.channels.DiffuseColor);
+  if(!hasColor)return -999;
+  let score=1;
+  if(/paint|car paint|carpaint|body paint|paintwork|exterior paint/.test(name))score+=18;
+  if(/body|exterior|bodywork|shell|main body|mainbody|car body|car_body/.test(name))score+=13;
+  if(/hood|bonnet|door|fender|quarter|roof|bumper|tailgate|trunk|boot/.test(name))score+=8;
+  if(/metallic|clearcoat|clear coat|colour|color/.test(name))score+=3;
+  if(/material|mat/.test(name))score-=1;
+  if(m.channels.Opacity && m.channels.Opacity.factor<0.85)score-=10;
+  return score;
+}
 function autoDetectPaint(initial=false){
   selectedMaterialIds.clear();
-  let candidates=materials.filter(m=>PAINT_WORDS.test(m.name||"")&&!EXCLUDE_WORDS.test(m.name||""));
-  candidates.forEach(m=>selectedMaterialIds.add(m.id));
-  if(!selectedMaterialIds.size){
-    const soft=materials.filter(m=>{
-      const n=(m.name||"").toLowerCase(),has=!!(m.channels&&(m.channels.AlbedoPBR||m.channels.DiffuseColor));
-      return has&&!EXCLUDE_WORDS.test(n);
-    });
-    soft.slice(0,Math.min(3,soft.length)).forEach(m=>selectedMaterialIds.add(m.id));
+  const ranked=materials.map(m=>({m,score:materialPaintScore(m)})).filter(x=>x.score>-900).sort((a,b)=>b.score-a.score);
+  const strong=ranked.filter(x=>x.score>=8);
+  if(strong.length){
+    strong.slice(0,Math.min(6,strong.length)).forEach(x=>selectedMaterialIds.add(x.m.id));
+  }else if(ranked.length){
+    ranked.slice(0,Math.min(2,ranked.length)).forEach(x=>selectedMaterialIds.add(x.m.id));
   }
   const count=selectedMaterialIds.size;
   detectEl.className=count?"status ok":"status warn";
-  detectEl.textContent=count?`${count} likely exterior material${count===1?"":"s"} selected automatically. If a non-body part changes color, open Advanced and untick it.`:"No body-paint material was identified automatically. Select it manually under Advanced.";
+  detectEl.textContent=count?`${count} likely exterior material${count===1?"":"s"} selected automatically.`:"Tap Calibrate body and tap one painted panel to teach this model.";
   if(!initial)renderMaterials();
 }
 
@@ -738,7 +746,7 @@ function restoreOriginalMaterials(){
 }
 
 function updateQA(){
-  const car=currentCar();
+  const car=activeCarRecord||currentCar();
   const assetUID=activeAssetUID();
   const calibrated=!!(assetUID && savedCalibrations[assetUID]?.materialNames?.length);
   const qaDot=document.getElementById("qaDot");
@@ -809,7 +817,7 @@ function applyPaint(){
     const hasConfirmedCalibration=!!(assetUID && savedCalibrations[assetUID]?.materialNames?.length);
     if(!calibrationMode && !hasConfirmedCalibration)return;
 
-    const car=currentCar();
+    const car=activeCarRecord||currentCar();
     const profile=(car && car.uid && PAINT_PROFILES[car.uid])||{};
     const srgbN=parseInt(currentColor.slice(1),16);
     const srgb=[((srgbN>>16)&255)/255,((srgbN>>8)&255)/255,(srgbN&255)/255];
@@ -824,7 +832,8 @@ function applyPaint(){
     const coatSafe=Math.max(0,Math.min(1,coat));
     const coatRough=currentFinish==="gloss"?.09:currentFinish==="satin"?.32:.76;
     const paintMode=profile.paintMode || "hybrid";
-    const bodyFactor=profile.bodyFactor ?? (chroma<0.08 ? .78 : .86);
+    const bodyFactor=profile.bodyFactor ?? (chroma<0.08 ? .82 : .90);
+    const calibratedNow=!!(activeAssetUID() && savedCalibrations[activeAssetUID()]?.materialNames?.length);
 
     materials.forEach(m=>{
       if(!selectedMaterialIds.has(m.id))return;
@@ -833,18 +842,18 @@ function applyPaint(){
         m.channels.AlbedoPBR.enable=true;
         m.channels.AlbedoPBR.color=[...rgb];
         m.channels.AlbedoPBR.factor=bodyFactor;
-        if(paintMode==="solid" && "texture" in m.channels.AlbedoPBR) m.channels.AlbedoPBR.texture=null;
+        if((calibratedNow||materialPaintScore(m)>=8||paintMode==="solid") && "texture" in m.channels.AlbedoPBR)m.channels.AlbedoPBR.texture=null;
       }
       if(m.channels?.DiffusePBR){
         m.channels.DiffusePBR.enable=true;
         if("color" in m.channels.DiffusePBR)m.channels.DiffusePBR.color=[...rgb];
         if("factor" in m.channels.DiffusePBR)m.channels.DiffusePBR.factor=bodyFactor;
-        if(paintMode==="solid" && "texture" in m.channels.DiffusePBR) m.channels.DiffusePBR.texture=null;
+        if((calibratedNow||materialPaintScore(m)>=8||paintMode==="solid") && "texture" in m.channels.DiffusePBR)m.channels.DiffusePBR.texture=null;
       }
       if(m.channels?.DiffuseColor){
         m.channels.DiffuseColor.enable=true;
         m.channels.DiffuseColor.color=[...rgb];
-        if(paintMode==="solid" && "texture" in m.channels.DiffuseColor) m.channels.DiffuseColor.texture=null;
+        if((calibratedNow||materialPaintScore(m)>=8||paintMode==="solid") && "texture" in m.channels.DiffuseColor)m.channels.DiffuseColor.texture=null;
       }
       if(m.channels?.DiffuseIntensity){
         m.channels.DiffuseIntensity.enable=true;
@@ -879,8 +888,12 @@ function applyPaint(){
 }
 function setColor(hex){
   if(!/^#[0-9a-f]{6}$/i.test(hex))return;
-  currentColor=hex.toLowerCase();document.getElementById("paintColor").value=currentColor;document.getElementById("paintHex").value=currentColor.toUpperCase();
-  document.querySelectorAll(".swatch").forEach(s=>s.classList.toggle("active",s.dataset.color.toLowerCase()===currentColor));applyPaint();
+  currentColor=hex.toLowerCase();
+  document.getElementById("paintColor").value=currentColor;document.getElementById("paintHex").value=currentColor.toUpperCase();
+  document.querySelectorAll(".swatch").forEach(s=>s.classList.toggle("active",s.dataset.color.toLowerCase()===currentColor));
+  if(api&&viewerReady&&materials.length&&!selectedMaterialIds.size)autoDetectPaint(true);
+  if(selectedMaterialIds.size)applyPaint();
+  else if(api&&viewerReady){detectEl.className="status warn";detectEl.textContent="This model needs one body tap before painting: press Calibrate body, then tap a painted panel.";}
 }
 function setFinish(name){
   currentFinish=name;
@@ -955,7 +968,7 @@ async function snapshotAngles(){
     statusEl.textContent="Wait for the 3D car to finish loading before downloading angle photos.";
     return;
   }
-  const car=currentCar();
+  const car=activeCarRecord||currentCar();
   const baseName=`${car.brand}-${car.model}-${car.trim}`.replace(/\s+/g,'-');
   statusEl.className="status";
   statusEl.textContent="Preparing 8-angle photo set…";
@@ -1015,7 +1028,7 @@ function snapshot(){
   statusEl.textContent="Creating 4K 3840×2160 PNG preview…";
 
   const saveResult=(result,w,h)=>{
-    const a=document.createElement("a"),car=currentCar();
+    const a=document.createElement("a"),car=activeCarRecord||currentCar();
     a.href=result;
     a.download=`${car.brand}-${car.model}-${car.trim}-${currentColor.slice(1)}-${w}x${h}.png`.replace(/\s+/g,"-");
     a.click();
