@@ -59,7 +59,7 @@ select:focus,input:focus{border-color:var(--accent)}.select-grid{display:grid;gr
 <section class="viewer-pane">
   <iframe id="api-frame" title="Interactive 3D car viewer" allow="autoplay; fullscreen; xr-spatial-tracking"></iframe>
   <div class="topbar">
-    <div class="brandbox glass"><div class="logo"></div><div><strong>UAE Car Color Studio</strong><small>Real-car 3D paint preview</small></div></div>
+    <div class="brandbox glass"><div class="logo"></div><div><strong>UAE Car Color Studio</strong><small>HD textures • 4K export • instant paint</small></div></div>
     <div class="top-actions"><button class="mini-btn hide-mobile" id="reloadCar" type="button">Reset 3D</button><button class="mini-btn" id="snapshotTop" type="button">Snapshot</button></div>
   </div>
   <div class="helper glass">Drag / swipe to rotate • Pinch / wheel to zoom • Full 360° viewer</div>
@@ -68,7 +68,7 @@ select:focus,input:focus{border-color:var(--accent)}.select-grid{display:grid;gr
 
 <aside class="panel">
   <h1>Choose your car</h1>
-  <p class="lead">Expanded for the UAE market. Select the car normally; curated models load immediately, while other cars are matched automatically with the closest public 3D model available online.</p>
+  <p class="lead">Expanded for the UAE market with HD/4K-ready rendering. Curated models load directly; other cars are matched automatically with the closest public 3D model, with automatic fallback if a model is unavailable.</p>
 
   <section class="section">
     <div class="stats">
@@ -115,7 +115,7 @@ select:focus,input:focus{border-color:var(--accent)}.select-grid{display:grid;gr
   </section>
 
   <section class="section">
-    <div class="section-head"><strong>2. Exterior paint</strong><span class="badge">LIVE COLOR</span></div>
+    <div class="section-head"><strong>2. Exterior paint</strong><span class="badge">INSTANT PAINT</span></div>
     <div class="swatches">
       <button class="swatch active" style="--c:#20242a" data-color="#20242a" title="Obsidian Black"></button>
       <button class="swatch" style="--c:#f0f1ed" data-color="#f0f1ed" title="Pearl White"></button>
@@ -149,9 +149,9 @@ select:focus,input:focus{border-color:var(--accent)}.select-grid{display:grid;gr
 
   <section class="section">
     <div class="section-head"><strong>4. Preview</strong></div>
-    <button class="btn primary" id="snapshot" type="button">Save color preview</button>
+    <button class="btn primary" id="snapshot" type="button">Save 4K preview (3840×2160)</button>
     <button class="btn secondary" id="resetPaint" type="button">Reset paint settings</button>
-    <div class="note">The catalog contains real vehicle names. 3D availability comes from public Sketchfab models and varies by exact year/trim. The app avoids intentionally substituting an unrelated vehicle, and the “Try another 3D” button lets you cycle through alternate matches.</div>
+    <div class="note">Rendering is configured for HD textures with a 4096px texture ceiling and 4K PNG export. Source 3D geometry and original texture detail still depend on the quality of the public model. The app automatically tries alternate close matches if one model fails.</div>
   </section>
 </aside>
 </div>
@@ -248,6 +248,8 @@ const alternateBtn=document.getElementById("tryAlternate"), materialListEl=docum
 const searchCache=new Map();
 let activeFilter="all", bridge=null, api=null, materials=[], selectedMaterialIds=new Set(), currentColor="#20242a";
 let candidateModels=[], candidateIndex=0, currentResolved=null, loadSerial=0;
+let viewerLoadTimer=null, recoveryInProgress=false, recoveryAttempts=0;
+let paintFrame=0, paintRevision=0, currentFinish="gloss";
 
 const PAINT_WORDS=/(paint|body|carpaint|car paint|exterior|bodywork|shell|hood|bonnet|door|doors|fender|quarter|roof|bumper|metallic|colour|color|mainbody|main_body|car_body)/i;
 const EXCLUDE_WORDS=/(glass|window|windshield|windscreen|tire|tyre|rubber|wheel|rim|brake|disc|caliper|light|lamp|headlight|taillight|chrome|interior|seat|dashboard|screen|mirror|badge|logo|emblem|carbon|grille|grill|license|plate|engine|exhaust)/i;
@@ -332,7 +334,7 @@ async function resolveCar3D(car, forceSearch=false){
   }
   if(!res.ok) throw new Error("SEARCH_HTTP_"+res.status);
   const data=await res.json();
-  const found=(data.results||[]).filter(x=>x&&x.uid);
+  const found=(data.results||[]).filter(x=>x&&x.uid&&x.isPublished!==false);
   const scored=found.map(x=>({
     uid:x.uid,
     name:x.name||"Sketchfab model",
@@ -358,7 +360,8 @@ function scoreCandidate(x,car){
   if(name.includes(nrm(car.model)))score+=8;
   if(name.includes(nrm(`${car.brand} ${car.model}`)))score+=8;
   if(/wheel|rim|seat|interior only|hot wheels|toy|lego|police|wreck|damaged|ps1|low poly|low-poly/.test(name))score-=8;
-  score+=Math.min(3,Math.log10(1+(x.likeCount||0)));
+  score+=Math.min(3.5,Math.log10(1+(x.likeCount||0)));
+  score+=Math.min(2.5,Math.log10(1+(x.viewCount||0))/2);
   return score;
 }
 
@@ -366,6 +369,8 @@ async function loadSelectedCar(forceSearch=false){
   const car=currentCar(); if(!car)return;
   const serial=++loadSerial;
   api=null;materials=[];selectedMaterialIds.clear();candidateModels=[];candidateIndex=0;currentResolved=null;
+  recoveryInProgress=false;recoveryAttempts=0;
+  if(viewerLoadTimer){clearTimeout(viewerLoadTimer);viewerLoadTimer=null;}
   materialListEl.innerHTML='<div class="note">Materials will appear after the car loads.</div>';
   detectEl.className="status";detectEl.textContent="Waiting for car materials…";
   alternateBtn.disabled=true;
@@ -404,14 +409,26 @@ function loadCandidate(index,serial=loadSerial){
   currentResolved=candidate;
   const car=currentCar();
   sourceLink.href=candidate.source;
-  selectedMeta.textContent=`${car.year} • ${car.trim} • ${candidate.curated?"curated 3D match":"auto-matched 3D"}${candidateModels.length>1?` • match ${candidateIndex+1}/${candidateModels.length}`:""}`;
-  statusEl.className="status"; statusEl.textContent=`Loading: ${candidate.name}`;
-  loading.classList.add("show"); loadingText.textContent=`Loading ${candidate.name}…`;
+  selectedMeta.textContent=`${car.year} • ${car.trim} • ${candidate.curated?"curated 3D match":"auto-matched 3D"}${candidateModels.length>1?` • match ${candidateIndex+1}/${candidateModels.length}`:""} • HD`;
+  statusEl.className="status"; statusEl.textContent=`Loading HD model: ${candidate.name}`;
+  loading.classList.add("show"); loadingText.textContent=`Loading ${candidate.name} in HD…`;
+
+  if(viewerLoadTimer) clearTimeout(viewerLoadTimer);
+  viewerLoadTimer=setTimeout(()=>{
+    if(serial===loadSerial && loading.classList.contains("show")){
+      recoverFrom3DFailure("The selected 3D model took too long to load.");
+    }
+  },22000);
 
   if(bridge) bridge.destroy();
   bridge=new SFBridge("1.12.0",iframe);
   bridge.init(candidate.uid,{
-    autostart:1,preload:1,ui_infos:0,ui_annotations:0,ui_help:0,ui_stop:0,
+    autostart:1,
+    preload:0,
+    camera:0,
+    max_texture_size:4096,
+    dnt:1,
+    ui_infos:0,ui_annotations:0,ui_help:0,ui_stop:0,
     ui_inspector:0,ui_settings:1,ui_controls:1,ui_fullscreen:1,ui_vr:0,
     success:function(newApi){
       if(serial!==loadSerial)return;
@@ -419,19 +436,62 @@ function loadCandidate(index,serial=loadSerial){
       if(api.start)api.start();
       api.addEventListener("viewerready",()=>{
         if(serial!==loadSerial)return;
+        if(viewerLoadTimer){clearTimeout(viewerLoadTimer);viewerLoadTimer=null;}
+        recoveryInProgress=false;
         loading.classList.remove("show");
         statusEl.className="status ok";
-        statusEl.textContent=`3D car loaded${candidate.curated?" from a curated match":" from the closest available match"}. Drag or swipe to rotate freely.`;
+        statusEl.textContent=`3D car loaded in HD mode${candidate.curated?" from a curated match":" from the closest available match"}. Paint changes are applied instantly.`;
+        if(api.setTextureQuality){
+          api.setTextureQuality("hd",()=>{});
+        }
         readMaterials();
       });
     },
     error:function(){
       if(serial!==loadSerial)return;
-      loading.classList.remove("show");
-      statusEl.className="status err";
-      statusEl.textContent="This particular public 3D model is unavailable for embedding. Use “Try another 3D” if available.";
+      if(viewerLoadTimer){clearTimeout(viewerLoadTimer);viewerLoadTimer=null;}
+      recoverFrom3DFailure("This public 3D model is unavailable for embedding.");
     }
   });
+}
+
+async function recoverFrom3DFailure(reason){
+  if(recoveryInProgress)return;
+  recoveryInProgress=true;
+  const car=currentCar();
+
+  if(candidateModels.length>1 && recoveryAttempts<candidateModels.length-1){
+    recoveryAttempts++;
+    statusEl.className="status warn";
+    statusEl.textContent=`${reason} Trying another 3D model automatically…`;
+    recoveryInProgress=false;
+    loadCandidate(candidateIndex+1,loadSerial);
+    return;
+  }
+
+  try{
+    statusEl.className="status warn";
+    statusEl.textContent=`${reason} Re-searching for another close 3D match…`;
+    loading.classList.add("show");
+    loadingText.textContent=`Finding another ${car.brand} ${car.model} model…`;
+    const fresh=await resolveCar3D(car,true);
+    const used=new Set(candidateModels.map(x=>x.uid));
+    const extras=fresh.filter(x=>!used.has(x.uid));
+    if(extras.length){
+      const firstNewIndex=candidateModels.length;
+      candidateModels=candidateModels.concat(extras);
+      recoveryAttempts++;
+      alternateBtn.disabled=candidateModels.length<2;
+      recoveryInProgress=false;
+      loadCandidate(firstNewIndex,loadSerial);
+      return;
+    }
+  }catch(e){}
+
+  recoveryInProgress=false;
+  loading.classList.remove("show");
+  statusEl.className="status err";
+  statusEl.textContent="No working close 3D match could be loaded for this exact selection right now. Try another year/trim; the app will not intentionally replace it with an unrelated car.";
 }
 
 function readMaterials(){
@@ -479,15 +539,48 @@ function renderMaterials(){
 }
 function hexRgb(hex){const n=parseInt(hex.slice(1),16);return[((n>>16)&255)/255,((n>>8)&255)/255,(n&255)/255]}
 function applyPaint(){
-  if(!api||!materials.length||!selectedMaterialIds.size||!api.setMaterial)return;
-  const rgb=hexRgb(currentColor),metal=Number(document.getElementById("metalness").value),rough=Number(document.getElementById("roughness").value);
-  materials.forEach(m=>{
-    if(!selectedMaterialIds.has(m.id))return;
-    if(m.channels?.AlbedoPBR){m.channels.AlbedoPBR.color=[...rgb];if("factor"in m.channels.AlbedoPBR)m.channels.AlbedoPBR.factor=1}
-    if(m.channels?.DiffuseColor)m.channels.DiffuseColor.color=[...rgb];
-    if(m.channels?.MetalnessPBR){m.channels.MetalnessPBR.enable=true;m.channels.MetalnessPBR.factor=metal}
-    if(m.channels?.RoughnessPBR){m.channels.RoughnessPBR.enable=true;m.channels.RoughnessPBR.factor=rough}
-    api.setMaterial(m);
+  paintRevision++;
+  if(paintFrame) return;
+  paintFrame=requestAnimationFrame(()=>{
+    paintFrame=0;
+    const revision=paintRevision;
+    if(!api||!materials.length||!selectedMaterialIds.size||!api.setMaterial)return;
+
+    const rgb=hexRgb(currentColor);
+    const metal=Number(document.getElementById("metalness").value);
+    const rough=Number(document.getElementById("roughness").value);
+    const coat=currentFinish==="gloss"?.92:currentFinish==="satin"?.42:.10;
+    const coatRough=currentFinish==="gloss"?.08:currentFinish==="satin"?.32:.75;
+
+    const updates=[];
+    materials.forEach(m=>{
+      if(!selectedMaterialIds.has(m.id))return;
+      if(m.channels?.AlbedoPBR){
+        m.channels.AlbedoPBR.color=[...rgb];
+        if("factor" in m.channels.AlbedoPBR)m.channels.AlbedoPBR.factor=1;
+      }
+      if(m.channels?.DiffuseColor)m.channels.DiffuseColor.color=[...rgb];
+      if(m.channels?.MetalnessPBR){
+        m.channels.MetalnessPBR.enable=true;
+        m.channels.MetalnessPBR.factor=metal;
+      }
+      if(m.channels?.RoughnessPBR){
+        m.channels.RoughnessPBR.enable=true;
+        m.channels.RoughnessPBR.factor=rough;
+      }
+      if(m.channels?.ClearCoat){
+        m.channels.ClearCoat.enable=true;
+        m.channels.ClearCoat.factor=coat;
+      }
+      if(m.channels?.ClearCoatRoughness){
+        m.channels.ClearCoatRoughness.enable=true;
+        m.channels.ClearCoatRoughness.factor=coatRough;
+      }
+      updates.push(m);
+    });
+
+    updates.forEach(m=>api.setMaterial(m));
+    if(revision!==paintRevision) applyPaint();
   });
 }
 function setColor(hex){
@@ -496,6 +589,7 @@ function setColor(hex){
   document.querySelectorAll(".swatch").forEach(s=>s.classList.toggle("active",s.dataset.color.toLowerCase()===currentColor));applyPaint();
 }
 function setFinish(name){
+  currentFinish=name;
   document.querySelectorAll("[data-finish]").forEach(b=>b.classList.toggle("active",b.dataset.finish===name));
   const r=document.getElementById("roughness");r.value=name==="gloss"?.22:name==="satin"?.48:.78;document.getElementById("roughOut").textContent=Math.round(Number(r.value)*100)+"%";applyPaint();
 }
@@ -513,12 +607,32 @@ function selectByQuickSearch(){
   const i=list.findIndex(c=>label(c)===label(exact));if(i>=0){variantSelect.value=String(i);loadSelectedCar()}
 }
 function snapshot(){
-  if(!api||!api.getScreenShot){statusEl.className="status warn";statusEl.textContent="Wait for the 3D car to finish loading before taking a snapshot.";return}
-  statusEl.className="status";statusEl.textContent="Creating preview image…";
-  api.getScreenShot(1600,1000,"image/png",(err,result)=>{
-    if(err||!result){statusEl.className="status err";statusEl.textContent="The viewer could not create a screenshot for this model.";return}
-    const a=document.createElement("a"),car=currentCar();a.href=result;a.download=`${car.brand}-${car.model}-${car.trim}-${currentColor.slice(1)}.png`.replace(/\s+/g,"-");a.click();
-    statusEl.className="status ok";statusEl.textContent="Color preview image created.";
+  if(!api||!api.getScreenShot){
+    statusEl.className="status warn";
+    statusEl.textContent="Wait for the 3D car to finish loading before taking a snapshot.";
+    return;
+  }
+  statusEl.className="status";
+  statusEl.textContent="Creating 4K 3840×2160 PNG preview…";
+
+  const saveResult=(result,w,h)=>{
+    const a=document.createElement("a"),car=currentCar();
+    a.href=result;
+    a.download=`${car.brand}-${car.model}-${car.trim}-${currentColor.slice(1)}-${w}x${h}.png`.replace(/\s+/g,"-");
+    a.click();
+    statusEl.className="status ok";
+    statusEl.textContent=`High-resolution ${w}×${h} color preview created.`;
+  };
+
+  api.getScreenShot(3840,2160,"image/png",(err,result)=>{
+    if(!err&&result){saveResult(result,3840,2160);return;}
+    statusEl.className="status warn";
+    statusEl.textContent="4K export was too heavy for this device; creating a 2560×1440 fallback…";
+    api.getScreenShot(2560,1440,"image/png",(err2,result2)=>{
+      if(!err2&&result2){saveResult(result2,2560,1440);return;}
+      statusEl.className="status err";
+      statusEl.textContent="This device/model could not create a high-resolution screenshot. The interactive 3D viewer remains available.";
+    });
   });
 }
 
@@ -531,7 +645,7 @@ document.querySelectorAll(".filter-btn").forEach(b=>b.addEventListener("click",(
 document.getElementById("goSearch").addEventListener("click",selectByQuickSearch);
 document.getElementById("quickSearch").addEventListener("keydown",e=>{if(e.key==="Enter")selectByQuickSearch()});
 document.getElementById("tryAlternate").addEventListener("click",()=>loadCandidate(candidateIndex+1));
-document.getElementById("refind3D").addEventListener("click",()=>loadSelectedCar(true));
+document.getElementById("refind3D").addEventListener("click",()=>{if(viewerLoadTimer)clearTimeout(viewerLoadTimer);loadSelectedCar(true)});
 document.getElementById("reloadCar").addEventListener("click",()=>currentResolved?loadCandidate(candidateIndex):loadSelectedCar());
 document.querySelectorAll(".swatch").forEach(s=>s.addEventListener("click",()=>setColor(s.dataset.color)));
 document.getElementById("paintColor").addEventListener("input",e=>setColor(e.target.value));
