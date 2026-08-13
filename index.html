@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0a0d11">
 <title>UAE Car Color Studio — Garage Production</title>
 <script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
 :root{
   --bg:#090c10;--panel:#11161c;--panel2:#161c23;--panel3:#0d1217;--line:#28323d;
@@ -51,7 +52,19 @@ select:focus,input:focus{border-color:var(--accent)}.select-grid{display:grid;gr
 .searchline{display:grid;grid-template-columns:1fr auto;gap:7px}.materials{max-height:165px;overflow:auto;border:1px solid var(--line);border-radius:11px;background:#0d1217;padding:7px}.mat-row{display:flex;align-items:center;gap:8px;padding:6px 3px;font-size:10px;color:#d8e1ea}.mat-row input{accent-color:var(--accent)}
 .note{font-size:9px;line-height:1.5;color:#7f8b97;margin-top:9px}details{border:1px solid var(--line);border-radius:11px;background:#0d1217}summary{cursor:pointer;padding:10px 11px;font-size:11px;color:#dbe4ec}details .inside{padding:0 10px 10px}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px}.stat{background:#0d1217;border:1px solid var(--line);border-radius:11px;padding:9px}.stat b{display:block;font-size:15px}.stat span{font-size:9px;color:var(--muted)}
-@media(max-width:930px){.app{grid-template-columns:1fr;grid-template-rows:57dvh auto}.viewer-pane{min-height:57dvh}.panel{max-height:none;border-left:0;border-top:1px solid var(--line);padding-bottom:calc(22px + env(safe-area-inset-bottom))}.helper{bottom:10px;font-size:9px}.top-actions .hide-mobile{display:none}}
+@media(max-width:930px){.app{grid-template-columns:1fr;grid-template-rows:auto auto}.viewer-pane{min-height:57dvh}.panel{max-height:none;border-left:0;border-top:1px solid var(--line);padding-bottom:calc(22px + env(safe-area-inset-bottom))}.helper{bottom:10px;font-size:9px}.top-actions .hide-mobile{display:none}}
+@media(max-width:930px){
+  .viewer-pane{position:sticky;top:0;z-index:85;min-height:34dvh;height:34dvh;border-bottom:1px solid var(--line);box-shadow:0 12px 28px rgba(0,0,0,.28)}
+  body.compact-preview .viewer-pane{min-height:27dvh;height:27dvh}
+  .viewer-pane .topbar{top:max(10px,env(safe-area-inset-top));left:10px;right:10px}
+  .viewer-pane .brandbox{padding:8px 10px;border-radius:12px}
+  .viewer-pane .brandbox strong{font-size:13px}
+  .viewer-pane .brandbox small{font-size:9px}
+  .viewer-pane .mini-btn{padding:8px 10px;border-radius:10px}
+  .viewer-pane .helper{bottom:8px;font-size:9px;padding:7px 10px}
+  .panel{padding-top:14px}
+}
+
 @media(max-width:420px){.panel{padding:17px}.swatches{grid-template-columns:repeat(6,1fr)}.select-grid{grid-template-columns:1fr}.full{grid-column:auto}}
 
 .qa-box{margin-top:10px;border:1px solid var(--line);border-radius:12px;background:#0b1116;padding:11px}
@@ -77,7 +90,7 @@ select:focus,input:focus{border-color:var(--accent)}.select-grid{display:grid;gr
   <iframe id="api-frame" title="Interactive 3D car viewer" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" allow="autoplay; fullscreen; xr-spatial-tracking" allowfullscreen></iframe>
   <div class="topbar">
     <div class="brandbox glass"><div class="logo"></div><div><strong>UAE Car Color Studio</strong><small>Garage mode • calibrated paint • 4K export</small></div></div>
-    <div class="top-actions"><button class="mini-btn hide-mobile" id="reloadCar" type="button">Reset 3D</button><button class="mini-btn" id="snapshotTop" type="button">Snapshot</button></div>
+    <div class="top-actions"><button class="mini-btn hide-mobile" id="reloadCar" type="button">Reset 3D</button><button class="mini-btn" id="snapshotTop" type="button">Current photo</button></div>
   </div>
   <div class="helper glass">Drag / swipe to rotate • Pinch / wheel to zoom • Full 360° viewer</div>
   <div class="loading show" id="loading"><div class="loader-card glass"><div class="spinner"></div><div id="loadingText">Loading 3D car…</div></div></div>
@@ -185,7 +198,8 @@ select:focus,input:focus{border-color:var(--accent)}.select-grid{display:grid;gr
 
   <section class="section">
     <div class="section-head"><strong>4. Preview</strong></div>
-    <button class="btn primary" id="snapshot" type="button">Save 4K preview (3840×2160)</button>
+    <button class="btn primary" id="snapshot" type="button">Download current photo (4K)</button>
+    <button class="btn secondary" id="snapshotAngles" type="button">Download 8-angle photo set (ZIP)</button>
     <button class="btn secondary" id="resetPaint" type="button">Reset paint settings</button>
     <div class="note">Rendering is configured for HD textures with a 4096px texture ceiling and 4K PNG export. Source 3D geometry and original texture detail still depend on the quality of the public model. The app automatically tries alternate close matches if one model fails.</div>
   </section>
@@ -627,7 +641,7 @@ function updateQA(){
   }else{
     qaDot.classList.add("warn");
     qaBadge.textContent="CALIBRATION REQUIRED";
-    qaText.textContent="The 3D source is loaded, but this car needs one-time body calibration before professional use.";
+    qaText.textContent="The 3D source is loaded, but this car needs one-time body calibration before professional use. The floating preview stays visible while you scroll the controls.";
   }
 }
 
@@ -730,6 +744,111 @@ function selectByQuickSearch(){
   const list=CARS.filter(c=>c.brand===exact.brand&&c.model===exact.model);
   const i=list.findIndex(c=>label(c)===label(exact));if(i>=0){variantSelect.value=String(i);loadSelectedCar()}
 }
+
+function updateFloatingPreview(){
+  if(window.innerWidth>930){
+    document.body.classList.remove("compact-preview");
+    return;
+  }
+  document.body.classList.toggle("compact-preview", window.scrollY>70);
+}
+
+function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
+function getCameraLookAtP(){
+  return new Promise((resolve,reject)=>{
+    if(!api||!api.getCameraLookAt){reject(new Error("NO_CAMERA_API"));return;}
+    api.getCameraLookAt((err,camera)=>{if(err||!camera)reject(err||new Error("NO_CAMERA"));else resolve(camera);});
+  });
+}
+function setCameraLookAtP(position,target,duration){
+  return new Promise((resolve,reject)=>{
+    if(!api||!api.setCameraLookAt){reject(new Error("NO_CAMERA_SET"));return;}
+    api.setCameraLookAt(position,target,duration||0,()=>resolve());
+  });
+}
+function getScreenshotP(width,height){
+  return new Promise((resolve,reject)=>{
+    if(!api||!api.getScreenShot){reject(new Error("NO_SCREENSHOT"));return;}
+    api.getScreenShot(width,height,"image/png",(err,result)=>{
+      if(err||!result)reject(err||new Error("SCREENSHOT_FAILED"));
+      else resolve(result);
+    });
+  });
+}
+function dataURLToUint8Array(dataURL){
+  const base64=dataURL.split(',')[1]||'';
+  const binary=atob(base64);
+  const len=binary.length;
+  const bytes=new Uint8Array(len);
+  for(let i=0;i<len;i++)bytes[i]=binary.charCodeAt(i);
+  return bytes;
+}
+function downloadBlob(blob,filename){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+async function snapshotAngles(){
+  if(!api||!viewerReady){
+    statusEl.className="status warn";
+    statusEl.textContent="Wait for the 3D car to finish loading before downloading angle photos.";
+    return;
+  }
+  const car=currentCar();
+  const baseName=`${car.brand}-${car.model}-${car.trim}`.replace(/\s+/g,'-');
+  statusEl.className="status";
+  statusEl.textContent="Preparing 8-angle photo set…";
+
+  try{
+    const cam=await getCameraLookAtP();
+    const position=cam.position||cam.eye||cam.camera||cam.origin;
+    const target=cam.target||cam.lookAt||cam.center;
+    if(!Array.isArray(position)||!Array.isArray(target)) throw new Error('CAMERA_PARSE');
+
+    const dx=position[0]-target[0], dy=position[1]-target[1], dz=position[2]-target[2];
+    const radius=Math.max(0.1,Math.hypot(dx,dz));
+    const baseAzimuth=Math.atan2(dz,dx);
+    const zip=(window.JSZip?new JSZip():null);
+
+    for(let i=0;i<8;i++){
+      const az=baseAzimuth + i*(Math.PI*2/8);
+      const pos=[target[0]+Math.cos(az)*radius,target[1]+dy,target[2]+Math.sin(az)*radius];
+      statusEl.textContent=`Capturing angle ${i+1} of 8…`;
+      await setCameraLookAtP(pos,target,0.45);
+      await sleep(700);
+      const image=await getScreenshotP(1920,1080);
+      if(zip) zip.file(`${baseName}-view-${String(i+1).padStart(2,'0')}.png`,dataURLToUint8Array(image));
+      else {
+        const a=document.createElement('a');
+        a.href=image;
+        a.download=`${baseName}-view-${String(i+1).padStart(2,'0')}.png`;
+        a.click();
+        await sleep(250);
+      }
+    }
+
+    await setCameraLookAtP(position,target,0.45);
+
+    if(zip){
+      statusEl.textContent="Packaging ZIP file…";
+      const blob=await zip.generateAsync({type:'blob'});
+      downloadBlob(blob,`${baseName}-8-angle-photo-set.zip`);
+    }
+
+    statusEl.className="status ok";
+    statusEl.textContent="8-angle photo set downloaded successfully.";
+  }catch(err){
+    console.error(err);
+    statusEl.className="status err";
+    statusEl.textContent="The 8-angle export failed on this device/model. Try the current-photo download or reload the vehicle.";
+  }
+}
+
 function snapshot(){
   if(!api||!api.getScreenShot){
     statusEl.className="status warn";
@@ -789,6 +908,10 @@ document.getElementById("roughness").addEventListener("input",e=>{document.getEl
 document.getElementById("materialSearch").addEventListener("input",renderMaterials);
 document.getElementById("autoDetect").addEventListener("click",()=>{autoDetectPaint(false);applyPaint()});
 document.getElementById("snapshot").addEventListener("click",snapshot);document.getElementById("snapshotTop").addEventListener("click",snapshot);
+document.getElementById("snapshotAngles").addEventListener("click",snapshotAngles);
+window.addEventListener("scroll",updateFloatingPreview,{passive:true});
+window.addEventListener("resize",updateFloatingPreview);
+updateFloatingPreview();
 document.getElementById("resetPaint").addEventListener("click",()=>{restoreOriginalMaterials();document.getElementById("metalness").value=.70;document.getElementById("roughness").value=.22;document.getElementById("metalOut").textContent="70%";document.getElementById("roughOut").textContent="22%";setFinish("gloss");setColor("#20242a")});
 
 garageSafeOnly=true;
