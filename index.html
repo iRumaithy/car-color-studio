@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0d11">
+<title>UAE Car Color Studio — 3D Customizer</title>
+<style>
+:root{
+  --bg:#090c10;--panel:#11161c;--panel2:#161c23;--panel3:#0d1217;--line:#28323d;
+  --text:#f4f7fb;--muted:#95a2af;--accent:#57a8ff;--ok:#41d29c;--warn:#f3bd5c;--danger:#ff7070;
+}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{min-height:100dvh}button,input,select{font:inherit}button{cursor:pointer}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 410px;min-height:100dvh}
+.viewer-pane{position:relative;min-height:100dvh;overflow:hidden;background:radial-gradient(circle at 50% 22%,rgba(255,255,255,.1),transparent 32%),linear-gradient(180deg,#1a2028,#0a0e13 70%,#090c10)}
+#api-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#11151a}
+.topbar{position:absolute;top:max(15px,env(safe-area-inset-top));left:16px;right:16px;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;pointer-events:none}
+.glass{background:rgba(10,13,17,.76);border:1px solid rgba(255,255,255,.10);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.brandbox{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:14px;pointer-events:auto}
+.logo{width:30px;height:30px;border-radius:10px;background:linear-gradient(135deg,#fff,#7e8a97 43%,#26313d)}
+.brandbox strong{font-size:14px;display:block}.brandbox small{font-size:10px;color:var(--muted);display:block;margin-top:2px}
+.top-actions{display:flex;gap:7px;pointer-events:auto}
+.btn,.mini-btn{border:1px solid var(--line);color:var(--text);background:rgba(15,20,26,.92);border-radius:11px;padding:10px 12px}
+.btn:hover,.mini-btn:hover{border-color:#465566}.btn:disabled{opacity:.45;cursor:not-allowed}
+.helper{position:absolute;left:50%;bottom:max(17px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:5;border-radius:999px;padding:8px 12px;color:#dce3eb;font-size:11px;white-space:nowrap;pointer-events:none}
+.loading{position:absolute;inset:0;z-index:4;display:none;place-items:center;background:rgba(6,8,11,.63);backdrop-filter:blur(4px)}.loading.show{display:grid}
+.loader-card{padding:18px 20px;border-radius:15px;text-align:center;min-width:210px}.spinner{width:40px;height:40px;margin:0 auto 10px;border-radius:50%;border:3px solid rgba(255,255,255,.14);border-top-color:#fff;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}.loader-card div{font-size:12px;color:#dce4ed}
+.panel{background:var(--panel);border-left:1px solid var(--line);padding:20px;overflow:auto;max-height:100dvh}
+h1{font-size:20px;line-height:1.2;margin:0 0 5px}.lead{font-size:12px;line-height:1.5;color:var(--muted);margin:0 0 18px}
+.section{border-top:1px solid var(--line);padding:16px 0}.section:first-of-type{border-top:0;padding-top:0}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;gap:10px}.section-head strong{font-size:13px}
+.badge{font-size:9px;border:1px solid #26537e;color:#d5ebff;background:#15304a;padding:4px 7px;border-radius:999px;white-space:nowrap}
+.uae-badge{border-color:#31664e;background:#173527;color:#d7f6e8}
+label{display:block;color:#dce4ed;font-size:11px;margin-bottom:6px}
+select,input[type="text"],input[type="search"]{width:100%;border:1px solid var(--line);background:var(--panel3);color:var(--text);border-radius:11px;padding:10px 11px;outline:none}
+select:focus,input:focus{border-color:var(--accent)}.select-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.full{grid-column:1/-1}
+.quick{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:10px}.quick .btn{padding-inline:13px}
+.filters{display:flex;flex-wrap:wrap;gap:6px;margin:9px 0 11px}.filter-btn{border:1px solid var(--line);background:#0d1217;color:#cbd6e0;border-radius:999px;padding:7px 9px;font-size:9px}.filter-btn.active{border-color:var(--accent);background:#132a40;color:#eef7ff}
+.car-card{margin-top:11px;border:1px solid var(--line);border-radius:13px;background:#0d1217;padding:12px}.car-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.car-name{font-size:14px;font-weight:700}.car-meta{font-size:10px;color:var(--muted);margin-top:3px;line-height:1.4}.source-link{font-size:10px;color:#bcdcff;text-decoration:none;border:1px solid #294964;border-radius:8px;padding:5px 7px;white-space:nowrap}
+.status{margin-top:9px;border:1px solid var(--line);border-radius:10px;background:#0c1116;color:var(--muted);padding:9px 10px;font-size:10px;line-height:1.45}.status.ok{border-color:#255c49;color:#c7f6e3;background:#10251e}.status.warn{border-color:#665128;color:#ffe7b7;background:#2a2415}.status.err{border-color:#6f3434;color:#ffd1d1;background:#2c1717}
+.alt-row{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
+.swatches{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:12px}.swatch{aspect-ratio:1;border-radius:50%;border:2px solid rgba(255,255,255,.17);background:var(--c);padding:0;position:relative}.swatch.active:after{content:"";position:absolute;inset:-5px;border:2px solid var(--accent);border-radius:50%}
+.color-row{display:grid;grid-template-columns:52px 1fr;gap:9px;align-items:center}input[type="color"]{width:52px;height:42px;border:1px solid var(--line);background:var(--panel3);border-radius:10px;padding:2px}
+.range{margin-top:12px}.range-head{display:flex;justify-content:space-between;font-size:11px;color:#dce4ed;margin-bottom:5px}.range-head output{color:var(--muted)}input[type="range"]{width:100%;accent-color:var(--accent)}
+.finish-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:11px}.finish-grid button{border:1px solid var(--line);background:#0d1217;color:#dce4ed;border-radius:10px;padding:9px 5px;font-size:10px}.finish-grid button.active{border-color:var(--accent);background:#12283d;color:#f4f9ff}
+.primary{width:100%;background:var(--accent);border-color:var(--accent);color:#06121e;font-weight:750}.secondary{width:100%;margin-top:8px}
+.searchline{display:grid;grid-template-columns:1fr auto;gap:7px}.materials{max-height:165px;overflow:auto;border:1px solid var(--line);border-radius:11px;background:#0d1217;padding:7px}.mat-row{display:flex;align-items:center;gap:8px;padding:6px 3px;font-size:10px;color:#d8e1ea}.mat-row input{accent-color:var(--accent)}
+.note{font-size:9px;line-height:1.5;color:#7f8b97;margin-top:9px}details{border:1px solid var(--line);border-radius:11px;background:#0d1217}summary{cursor:pointer;padding:10px 11px;font-size:11px;color:#dbe4ec}details .inside{padding:0 10px 10px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px}.stat{background:#0d1217;border:1px solid var(--line);border-radius:11px;padding:9px}.stat b{display:block;font-size:15px}.stat span{font-size:9px;color:var(--muted)}
+@media(max-width:930px){.app{grid-template-columns:1fr;grid-template-rows:57dvh auto}.viewer-pane{min-height:57dvh}.panel{max-height:none;border-left:0;border-top:1px solid var(--line);padding-bottom:calc(22px + env(safe-area-inset-bottom))}.helper{bottom:10px;font-size:9px}.top-actions .hide-mobile{display:none}}
+@media(max-width:420px){.panel{padding:17px}.swatches{grid-template-columns:repeat(6,1fr)}.select-grid{grid-template-columns:1fr}.full{grid-column:auto}}
+</style>
+</head>
+<body>
+<div class="app">
+<section class="viewer-pane">
+  <iframe id="api-frame" title="Interactive 3D car viewer" allow="autoplay; fullscreen; xr-spatial-tracking"></iframe>
+  <div class="topbar">
+    <div class="brandbox glass"><div class="logo"></div><div><strong>UAE Car Color Studio</strong><small>Real-car 3D paint preview</small></div></div>
+    <div class="top-actions"><button class="mini-btn hide-mobile" id="reloadCar" type="button">Reset 3D</button><button class="mini-btn" id="snapshotTop" type="button">Snapshot</button></div>
+  </div>
+  <div class="helper glass">Drag / swipe to rotate • Pinch / wheel to zoom • Full 360° viewer</div>
+  <div class="loading show" id="loading"><div class="loader-card glass"><div class="spinner"></div><div id="loadingText">Loading 3D car…</div></div></div>
+</section>
+
+<aside class="panel">
+  <h1>Choose your car</h1>
+  <p class="lead">Expanded for the UAE market. Select the car normally; curated models load immediately, while other cars are matched automatically with the closest public 3D model available online.</p>
+
+  <section class="section">
+    <div class="stats">
+      <div class="stat"><b id="carCount">0</b><span>cars / trims</span></div>
+      <div class="stat"><b id="brandCount">0</b><span>manufacturers</span></div>
+      <div class="stat"><b id="popularCount">0</b><span>UAE focused</span></div>
+    </div>
+    <div class="section-head"><strong>1. Real car database</strong><span class="badge uae-badge">🇦🇪 UAE FOCUSED</span></div>
+
+    <label for="quickSearch">Quick search</label>
+    <div class="quick">
+      <input id="quickSearch" type="search" list="carSuggestions" placeholder="Patrol, LC300, G63, Jetour T2…">
+      <datalist id="carSuggestions"></datalist>
+      <button class="btn" id="goSearch" type="button">Go</button>
+    </div>
+
+    <div class="filters" id="filters">
+      <button class="filter-btn active" data-filter="all" type="button">All</button>
+      <button class="filter-btn" data-filter="popular" type="button">🇦🇪 UAE popular</button>
+      <button class="filter-btn" data-filter="SUV" type="button">SUV</button>
+      <button class="filter-btn" data-filter="Sedan" type="button">Sedan</button>
+      <button class="filter-btn" data-filter="Pickup" type="button">Pickup</button>
+      <button class="filter-btn" data-filter="Sports" type="button">Sports</button>
+      <button class="filter-btn" data-filter="EV" type="button">EV</button>
+    </div>
+
+    <div class="select-grid">
+      <div><label for="brandSelect">Manufacturer</label><select id="brandSelect"></select></div>
+      <div><label for="modelSelect">Model</label><select id="modelSelect"></select></div>
+      <div class="full"><label for="variantSelect">Year / trim</label><select id="variantSelect"></select></div>
+    </div>
+
+    <div class="car-card">
+      <div class="car-card-top">
+        <div><div class="car-name" id="selectedName">Loading…</div><div class="car-meta" id="selectedMeta">3D vehicle</div></div>
+        <a id="sourceLink" class="source-link" href="#" target="_blank" rel="noopener">3D source</a>
+      </div>
+      <div id="loadStatus" class="status">Preparing viewer…</div>
+      <div class="alt-row">
+        <button class="btn" id="tryAlternate" type="button" disabled>Try another 3D</button>
+        <button class="btn" id="refind3D" type="button">Re-find 3D</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head"><strong>2. Exterior paint</strong><span class="badge">LIVE COLOR</span></div>
+    <div class="swatches">
+      <button class="swatch active" style="--c:#20242a" data-color="#20242a" title="Obsidian Black"></button>
+      <button class="swatch" style="--c:#f0f1ed" data-color="#f0f1ed" title="Pearl White"></button>
+      <button class="swatch" style="--c:#a8adb1" data-color="#a8adb1" title="Silver"></button>
+      <button class="swatch" style="--c:#26323d" data-color="#26323d" title="Graphite"></button>
+      <button class="swatch" style="--c:#152c49" data-color="#152c49" title="Deep Blue"></button>
+      <button class="swatch" style="--c:#681117" data-color="#681117" title="Deep Red"></button>
+      <button class="swatch" style="--c:#21372d" data-color="#21372d" title="British Green"></button>
+      <button class="swatch" style="--c:#b69b78" data-color="#b69b78" title="Champagne"></button>
+      <button class="swatch" style="--c:#655143" data-color="#655143" title="Bronze"></button>
+      <button class="swatch" style="--c:#69304f" data-color="#69304f" title="Aubergine"></button>
+      <button class="swatch" style="--c:#a9c1cb" data-color="#a9c1cb" title="Ice Blue"></button>
+      <button class="swatch" style="--c:#c9c2ad" data-color="#c9c2ad" title="Stone"></button>
+      <button class="swatch" style="--c:#d25427" data-color="#d25427" title="Orange"></button>
+      <button class="swatch" style="--c:#d1b800" data-color="#d1b800" title="Yellow"></button>
+    </div>
+    <div class="color-row"><input id="paintColor" type="color" value="#20242a" aria-label="Custom paint color"><input id="paintHex" type="text" value="#20242A" maxlength="7" aria-label="Paint hex code"></div>
+    <div class="finish-grid"><button data-finish="gloss" class="active" type="button">Gloss</button><button data-finish="satin" type="button">Satin</button><button data-finish="matte" type="button">Matte</button></div>
+    <div class="range"><div class="range-head"><span>Metallic effect</span><output id="metalOut">70%</output></div><input id="metalness" type="range" min="0" max="1" value="0.70" step="0.01"></div>
+    <div class="range"><div class="range-head"><span>Surface roughness</span><output id="roughOut">22%</output></div><input id="roughness" type="range" min="0.03" max="0.95" value="0.22" step="0.01"></div>
+  </section>
+
+  <section class="section">
+    <div class="section-head"><strong>3. Body material detection</strong></div>
+    <div id="paintDetection" class="status">Waiting for car materials…</div>
+    <details style="margin-top:9px"><summary>Advanced: choose paintable materials manually</summary><div class="inside">
+      <div class="searchline"><input id="materialSearch" type="text" placeholder="Filter materials…"><button class="btn" id="autoDetect" type="button">Auto</button></div>
+      <div id="materialList" class="materials" style="margin-top:8px"><div class="note">Materials will appear after the car loads.</div></div>
+    </div></details>
+  </section>
+
+  <section class="section">
+    <div class="section-head"><strong>4. Preview</strong></div>
+    <button class="btn primary" id="snapshot" type="button">Save color preview</button>
+    <button class="btn secondary" id="resetPaint" type="button">Reset paint settings</button>
+    <div class="note">The catalog contains real vehicle names. 3D availability comes from public Sketchfab models and varies by exact year/trim. The app avoids intentionally substituting an unrelated vehicle, and the “Try another 3D” button lets you cycle through alternate matches.</div>
+  </section>
+</aside>
+</div>
+
+<script>
+const CARS = [{"brand":"Toyota","model":"Land Cruiser 300","year":"2024","trim":"VXR / Twin Turbo","category":"SUV","popular":true,"query":"Toyota Land Cruiser 300 2024 VXR / Twin Turbo","uid":"0937e2b405964856a1aac96f54861274"},{"brand":"Toyota","model":"Land Cruiser 300","year":"2024","trim":"GR Sport","category":"SUV","popular":true,"query":"Toyota Land Cruiser 300 2024 GR Sport"},{"brand":"Toyota","model":"Land Cruiser 250 / Prado","year":"2025","trim":"First Edition / VX","category":"SUV","popular":true,"query":"Toyota Land Cruiser 250 / Prado 2025 First Edition / VX","uid":"26458d2f6450404d84dd70d42cd41ac4"},{"brand":"Toyota","model":"Land Cruiser Prado 150","year":"2018–2023","trim":"VXR / GXR","category":"SUV","popular":true,"query":"Toyota Land Cruiser Prado 150 2018–2023 VXR / GXR"},{"brand":"Toyota","model":"Land Cruiser 200","year":"2016–2021","trim":"VXR / GXR","category":"SUV","popular":true,"query":"Toyota Land Cruiser 200 2016–2021 VXR / GXR"},{"brand":"Toyota","model":"Hilux","year":"2024","trim":"Adventure / GR Sport","category":"Pickup","popular":true,"query":"Toyota Hilux 2024 Adventure / GR Sport","uid":"548b90fb99864ef3b4c77a7e8a4fec51"},{"brand":"Toyota","model":"Fortuner","year":"2024","trim":"VXR / GXR","category":"SUV","popular":true,"query":"Toyota Fortuner 2024 VXR / GXR"},{"brand":"Toyota","model":"Camry","year":"2025","trim":"SE / Grande","category":"Sedan","popular":true,"query":"Toyota Camry 2025 SE / Grande"},{"brand":"Toyota","model":"Corolla","year":"2025","trim":"XLI / GLI","category":"Sedan","popular":true,"query":"Toyota Corolla 2025 XLI / GLI"},{"brand":"Toyota","model":"RAV4","year":"2025","trim":"Adventure / Hybrid","category":"SUV","popular":true,"query":"Toyota RAV4 2025 Adventure / Hybrid"},{"brand":"Toyota","model":"Yaris","year":"2025","trim":"Sedan","category":"Sedan","popular":true,"query":"Toyota Yaris 2025 Sedan"},{"brand":"Toyota","model":"Highlander","year":"2024","trim":"Hybrid","category":"SUV","popular":false,"query":"Toyota Highlander 2024 Hybrid"},{"brand":"Toyota","model":"Crown","year":"2024","trim":"Hybrid","category":"Sedan","popular":false,"query":"Toyota Crown 2024 Hybrid"},{"brand":"Toyota","model":"Supra","year":"2024","trim":"GR 3.0","category":"Sports","popular":false,"query":"Toyota Supra 2024 GR 3.0"},{"brand":"Toyota","model":"GR86","year":"2024","trim":"Premium","category":"Sports","popular":false,"query":"Toyota GR86 2024 Premium"},{"brand":"Toyota","model":"Sequoia","year":"2024","trim":"TRD Pro / Capstone","category":"SUV","popular":false,"query":"Toyota Sequoia 2024 TRD Pro / Capstone"},{"brand":"Nissan","model":"Patrol","year":"2025–2026","trim":"Y63","category":"SUV","popular":true,"query":"Nissan Patrol 2025–2026 Y63"},{"brand":"Nissan","model":"Patrol","year":"2021–2024","trim":"Y62","category":"SUV","popular":true,"query":"Nissan Patrol 2021–2024 Y62","uid":"9a2cda9f9a11474aa069e1895ff93443"},{"brand":"Nissan","model":"Patrol NISMO","year":"2024","trim":"Y62 NISMO","category":"SUV","popular":true,"query":"Nissan Patrol NISMO 2024 Y62 NISMO","uid":"80162fe6fadd4650a2a6c38fca3662a0"},{"brand":"Nissan","model":"Patrol Safari","year":"2024","trim":"Y61 / Super Safari","category":"SUV","popular":true,"query":"Nissan Patrol Safari 2024 Y61 / Super Safari","uid":"2c3f0d73b2854ad99527bf700aaff54a"},{"brand":"Nissan","model":"X-Trail","year":"2025","trim":"SL / SV","category":"SUV","popular":true,"query":"Nissan X-Trail 2025 SL / SV"},{"brand":"Nissan","model":"Pathfinder","year":"2025","trim":"SL / Platinum","category":"SUV","popular":true,"query":"Nissan Pathfinder 2025 SL / Platinum"},{"brand":"Nissan","model":"X-Terra","year":"2024","trim":"Platinum","category":"SUV","popular":true,"query":"Nissan X-Terra 2024 Platinum"},{"brand":"Nissan","model":"Kicks","year":"2025","trim":"SL","category":"SUV","popular":true,"query":"Nissan Kicks 2025 SL"},{"brand":"Nissan","model":"Altima","year":"2024","trim":"SV / SL","category":"Sedan","popular":true,"query":"Nissan Altima 2024 SV / SL"},{"brand":"Nissan","model":"Sunny","year":"2024","trim":"SV","category":"Sedan","popular":true,"query":"Nissan Sunny 2024 SV"},{"brand":"Nissan","model":"Navara","year":"2024","trim":"Pro-4X","category":"Pickup","popular":false,"query":"Nissan Navara 2024 Pro-4X"},{"brand":"Nissan","model":"Z","year":"2024","trim":"Performance / NISMO","category":"Sports","popular":false,"query":"Nissan Z 2024 Performance / NISMO"},{"brand":"Nissan","model":"GT-R","year":"2024","trim":"Premium / NISMO","category":"Sports","popular":false,"query":"Nissan GT-R 2024 Premium / NISMO"},{"brand":"Lexus","model":"LX","year":"2026","trim":"LX 600","category":"SUV","popular":true,"query":"Lexus LX 2026 LX 600","uid":"1343024a90164a8e94d31584399f466a"},{"brand":"Lexus","model":"LX","year":"2024","trim":"LX 600","category":"SUV","popular":true,"query":"Lexus LX 2024 LX 600","uid":"3780684a306b4549af6a258036d7ab27"},{"brand":"Lexus","model":"LX","year":"2016–2021","trim":"LX 570","category":"SUV","popular":true,"query":"Lexus LX 2016–2021 LX 570"},{"brand":"Lexus","model":"GX","year":"2024–2025","trim":"GX 550 Overtrail","category":"SUV","popular":true,"query":"Lexus GX 2024–2025 GX 550 Overtrail","uid":"2c8aadc8d0ea4ec180f758cd1361254b"},{"brand":"Lexus","model":"GX","year":"2014–2023","trim":"GX 460","category":"SUV","popular":true,"query":"Lexus GX 2014–2023 GX 460"},{"brand":"Lexus","model":"RX","year":"2025","trim":"RX 350 / 500h","category":"SUV","popular":true,"query":"Lexus RX 2025 RX 350 / 500h"},{"brand":"Lexus","model":"NX","year":"2025","trim":"NX 350 / 350h","category":"SUV","popular":true,"query":"Lexus NX 2025 NX 350 / 350h"},{"brand":"Lexus","model":"ES","year":"2025","trim":"ES 350","category":"Sedan","popular":true,"query":"Lexus ES 2025 ES 350"},{"brand":"Lexus","model":"LS","year":"2024","trim":"LS 500","category":"Sedan","popular":false,"query":"Lexus LS 2024 LS 500"},{"brand":"Lexus","model":"IS","year":"2024","trim":"IS 350 F Sport","category":"Sedan","popular":false,"query":"Lexus IS 2024 IS 350 F Sport"},{"brand":"Lexus","model":"LC","year":"2024","trim":"LC 500","category":"Sports","popular":false,"query":"Lexus LC 2024 LC 500"},{"brand":"Lexus","model":"UX","year":"2025","trim":"UX 300h","category":"SUV","popular":false,"query":"Lexus UX 2025 UX 300h"},{"brand":"Mercedes-Benz","model":"G-Class","year":"2025","trim":"AMG G 63","category":"SUV","popular":true,"query":"Mercedes-Benz G-Class 2025 AMG G 63","uid":"f583b5bfc17346c08573dc4f1edebefe"},{"brand":"Mercedes-Benz","model":"G-Class","year":"2025","trim":"G 500 / G 550","category":"SUV","popular":true,"query":"Mercedes-Benz G-Class 2025 G 500 / G 550"},{"brand":"Mercedes-Benz","model":"GLS","year":"2025","trim":"AMG GLS 63","category":"SUV","popular":true,"query":"Mercedes-Benz GLS 2025 AMG GLS 63","uid":"97e995befa964614b3d04fb720cd5a4c"},{"brand":"Mercedes-Benz","model":"GLS","year":"2025","trim":"GLS 450 / 580","category":"SUV","popular":true,"query":"Mercedes-Benz GLS 2025 GLS 450 / 580"},{"brand":"Mercedes-Benz","model":"GLE","year":"2025","trim":"AMG GLE 53 / 63","category":"SUV","popular":true,"query":"Mercedes-Benz GLE 2025 AMG GLE 53 / 63"},{"brand":"Mercedes-Benz","model":"GLE","year":"2025","trim":"GLE 450","category":"SUV","popular":true,"query":"Mercedes-Benz GLE 2025 GLE 450"},{"brand":"Mercedes-Benz","model":"S-Class","year":"2025","trim":"S 580","category":"Sedan","popular":true,"query":"Mercedes-Benz S-Class 2025 S 580"},{"brand":"Mercedes-Benz","model":"S-Class","year":"2025","trim":"AMG S 63 E Performance","category":"Sedan","popular":false,"query":"Mercedes-Benz S-Class 2025 AMG S 63 E Performance"},{"brand":"Mercedes-Benz","model":"E-Class","year":"2025","trim":"E 300 / E 450","category":"Sedan","popular":true,"query":"Mercedes-Benz E-Class 2025 E 300 / E 450"},{"brand":"Mercedes-Benz","model":"C-Class","year":"2025","trim":"C 200 / C 300","category":"Sedan","popular":true,"query":"Mercedes-Benz C-Class 2025 C 200 / C 300"},{"brand":"Mercedes-Benz","model":"AMG GT","year":"2024","trim":"GT 63 Coupe","category":"Sports","popular":false,"query":"Mercedes-Benz AMG GT 2024 GT 63 Coupe","uid":"9170e14ee194466ea32f63027e539d6c"},{"brand":"Mercedes-Benz","model":"SL","year":"2024","trim":"AMG SL 63","category":"Sports","popular":false,"query":"Mercedes-Benz SL 2024 AMG SL 63"},{"brand":"Mercedes-Benz","model":"CLA","year":"2025","trim":"CLA 250 / AMG 35","category":"Sedan","popular":false,"query":"Mercedes-Benz CLA 2025 CLA 250 / AMG 35"},{"brand":"Mercedes-Benz","model":"EQS","year":"2025","trim":"EQS 450 / 580","category":"EV","popular":false,"query":"Mercedes-Benz EQS 2025 EQS 450 / 580"},{"brand":"Mercedes-Benz","model":"EQE SUV","year":"2025","trim":"EQE 350 / 500","category":"EV","popular":false,"query":"Mercedes-Benz EQE SUV 2025 EQE 350 / 500"},{"brand":"Mercedes-Benz","model":"AMG ONE","year":"2025","trim":"Hypercar","category":"Sports","popular":false,"query":"Mercedes-Benz AMG ONE 2025 Hypercar","uid":"77b02e5a555d4819b490f67eeb348d22"},{"brand":"Land Rover","model":"Range Rover","year":"2025","trim":"L460 Autobiography / SV","category":"SUV","popular":true,"query":"Land Rover Range Rover 2025 L460 Autobiography / SV","uid":"74dfbfd36dd3419cb935ce832e67957d"},{"brand":"Land Rover","model":"Range Rover Sport","year":"2025","trim":"L461 Dynamic / SV","category":"SUV","popular":true,"query":"Land Rover Range Rover Sport 2025 L461 Dynamic / SV"},{"brand":"Land Rover","model":"Range Rover Sport","year":"2023","trim":"Sport","category":"SUV","popular":true,"query":"Land Rover Range Rover Sport 2023 Sport","uid":"640826210d2a4be9ae6e638fec1e84fa"},{"brand":"Land Rover","model":"Defender 110","year":"2025","trim":"X-Dynamic / V8","category":"SUV","popular":true,"query":"Land Rover Defender 110 2025 X-Dynamic / V8","uid":"df39d84cc8d04887801052e6900cb269"},{"brand":"Land Rover","model":"Defender 90","year":"2025","trim":"X-Dynamic / V8","category":"SUV","popular":true,"query":"Land Rover Defender 90 2025 X-Dynamic / V8"},{"brand":"Land Rover","model":"Defender 130","year":"2025","trim":"X-Dynamic","category":"SUV","popular":true,"query":"Land Rover Defender 130 2025 X-Dynamic"},{"brand":"Land Rover","model":"Range Rover Velar","year":"2025","trim":"Dynamic SE","category":"SUV","popular":true,"query":"Land Rover Range Rover Velar 2025 Dynamic SE"},{"brand":"Land Rover","model":"Range Rover Evoque","year":"2025","trim":"Dynamic SE","category":"SUV","popular":false,"query":"Land Rover Range Rover Evoque 2025 Dynamic SE"},{"brand":"Land Rover","model":"Discovery","year":"2024","trim":"R-Dynamic","category":"SUV","popular":false,"query":"Land Rover Discovery 2024 R-Dynamic"},{"brand":"Land Rover","model":"Range Rover","year":"L405","trim":"Vogue / Autobiography","category":"SUV","popular":true,"query":"Land Rover Range Rover L405 Vogue / Autobiography","uid":"69710b943776432b9f7b9f75842c15ff"},{"brand":"BMW","model":"X7","year":"2025","trim":"xDrive40i / M60i","category":"SUV","popular":true,"query":"BMW X7 2025 xDrive40i / M60i"},{"brand":"BMW","model":"X6","year":"2025","trim":"xDrive40i / M60i","category":"SUV","popular":true,"query":"BMW X6 2025 xDrive40i / M60i"},{"brand":"BMW","model":"X5","year":"2024","trim":"xDrive40i","category":"SUV","popular":true,"query":"BMW X5 2024 xDrive40i","uid":"b453ba441ff04f9290955d09c3d46b9f"},{"brand":"BMW","model":"X5 M","year":"G05","trim":"Competition","category":"SUV","popular":true,"query":"BMW X5 M G05 Competition","uid":"4abeaa4dfee24ae5a49e12b624882e1b"},{"brand":"BMW","model":"XM","year":"2025","trim":"Label Red","category":"SUV","popular":false,"query":"BMW XM 2025 Label Red"},{"brand":"BMW","model":"7 Series","year":"2025","trim":"740i / 760i","category":"Sedan","popular":true,"query":"BMW 7 Series 2025 740i / 760i"},{"brand":"BMW","model":"5 Series","year":"2025","trim":"530i / 550e","category":"Sedan","popular":true,"query":"BMW 5 Series 2025 530i / 550e"},{"brand":"BMW","model":"3 Series","year":"2025","trim":"330i / M340i","category":"Sedan","popular":true,"query":"BMW 3 Series 2025 330i / M340i"},{"brand":"BMW","model":"M5","year":"2025","trim":"G90","category":"Sports","popular":false,"query":"BMW M5 2025 G90"},{"brand":"BMW","model":"M4","year":"2025","trim":"G82 Competition","category":"Sports","popular":false,"query":"BMW M4 2025 G82 Competition"},{"brand":"BMW","model":"M4","year":"F82","trim":"M4","category":"Sports","popular":false,"query":"BMW M4 F82 M4","uid":"8e87379f40fd40dcac0a751e22c1a188"},{"brand":"BMW","model":"M3","year":"2025","trim":"G80 Competition","category":"Sports","popular":false,"query":"BMW M3 2025 G80 Competition"},{"brand":"BMW","model":"i7","year":"2025","trim":"xDrive60 / M70","category":"EV","popular":false,"query":"BMW i7 2025 xDrive60 / M70"},{"brand":"BMW","model":"iX","year":"2025","trim":"xDrive50 / M60","category":"EV","popular":false,"query":"BMW iX 2025 xDrive50 / M60"},{"brand":"Audi","model":"Q8","year":"2025","trim":"55 TFSI","category":"SUV","popular":true,"query":"Audi Q8 2025 55 TFSI"},{"brand":"Audi","model":"RS Q8","year":"2025","trim":"Performance","category":"SUV","popular":true,"query":"Audi RS Q8 2025 Performance"},{"brand":"Audi","model":"Q7","year":"2025","trim":"55 TFSI","category":"SUV","popular":true,"query":"Audi Q7 2025 55 TFSI"},{"brand":"Audi","model":"Q5","year":"2025","trim":"45 TFSI","category":"SUV","popular":true,"query":"Audi Q5 2025 45 TFSI"},{"brand":"Audi","model":"RS6 Avant","year":"2024","trim":"RS6 Avant GT","category":"Sports","popular":false,"query":"Audi RS6 Avant 2024 RS6 Avant GT","uid":"e74dce0d5b294381a979627513ca9f30"},{"brand":"Audi","model":"RS6 Avant","year":"2020","trim":"C8","category":"Sports","popular":false,"query":"Audi RS6 Avant 2020 C8","uid":"99aa71f747b0453eb58334414d34397c"},{"brand":"Audi","model":"RS7","year":"2024","trim":"Performance","category":"Sports","popular":false,"query":"Audi RS7 2024 Performance"},{"brand":"Audi","model":"A8","year":"2024","trim":"L 55 TFSI","category":"Sedan","popular":true,"query":"Audi A8 2024 L 55 TFSI"},{"brand":"Audi","model":"A6","year":"2025","trim":"45 / 55 TFSI","category":"Sedan","popular":true,"query":"Audi A6 2025 45 / 55 TFSI"},{"brand":"Audi","model":"A5","year":"2025","trim":"Sportback","category":"Sedan","popular":false,"query":"Audi A5 2025 Sportback"},{"brand":"Audi","model":"e-tron GT","year":"2025","trim":"S / RS","category":"EV","popular":false,"query":"Audi e-tron GT 2025 S / RS"},{"brand":"Audi","model":"R8","year":"2023","trim":"V10 Performance","category":"Sports","popular":false,"query":"Audi R8 2023 V10 Performance"},{"brand":"Porsche","model":"Cayenne","year":"2024","trim":"Turbo GT","category":"SUV","popular":true,"query":"Porsche Cayenne 2024 Turbo GT","uid":"74fbea5a4dfc4197839fdd2bf654369a"},{"brand":"Porsche","model":"Cayenne","year":"2025","trim":"S / GTS","category":"SUV","popular":true,"query":"Porsche Cayenne 2025 S / GTS"},{"brand":"Porsche","model":"Cayenne Coupe","year":"2025","trim":"S / Turbo E-Hybrid","category":"SUV","popular":true,"query":"Porsche Cayenne Coupe 2025 S / Turbo E-Hybrid"},{"brand":"Porsche","model":"Macan","year":"2025","trim":"Macan 4 / Turbo EV","category":"EV","popular":true,"query":"Porsche Macan 2025 Macan 4 / Turbo EV"},{"brand":"Porsche","model":"911","year":"2025","trim":"992 Carrera / Carrera 4S","category":"Sports","popular":true,"query":"Porsche 911 2025 992 Carrera / Carrera 4S","uid":"d01b254483794de3819786d93e0e1ebf"},{"brand":"Porsche","model":"911","year":"2025","trim":"992 Turbo S","category":"Sports","popular":false,"query":"Porsche 911 2025 992 Turbo S"},{"brand":"Porsche","model":"911","year":"2025","trim":"992 GT3","category":"Sports","popular":false,"query":"Porsche 911 2025 992 GT3"},{"brand":"Porsche","model":"Panamera","year":"2025","trim":"4 / Turbo E-Hybrid","category":"Sedan","popular":true,"query":"Porsche Panamera 2025 4 / Turbo E-Hybrid"},{"brand":"Porsche","model":"Taycan","year":"2025","trim":"4S / Turbo","category":"EV","popular":true,"query":"Porsche Taycan 2025 4S / Turbo"},{"brand":"Porsche","model":"718 Cayman","year":"2022","trim":"GT4 RS","category":"Sports","popular":false,"query":"Porsche 718 Cayman 2022 GT4 RS","uid":"b1d87619f6174f10be47423fcd4de444"},{"brand":"Ford","model":"F-150 Raptor","year":"2024","trim":"Raptor R","category":"Pickup","popular":true,"query":"Ford F-150 Raptor 2024 Raptor R","uid":"91aedf1119724f3396dcfe87686545c1"},{"brand":"Ford","model":"F-150","year":"2025","trim":"Platinum / Tremor","category":"Pickup","popular":true,"query":"Ford F-150 2025 Platinum / Tremor"},{"brand":"Ford","model":"Bronco","year":"2025","trim":"Wildtrak / Raptor","category":"SUV","popular":true,"query":"Ford Bronco 2025 Wildtrak / Raptor"},{"brand":"Ford","model":"Mustang","year":"2025","trim":"GT / Dark Horse","category":"Sports","popular":true,"query":"Ford Mustang 2025 GT / Dark Horse"},{"brand":"Ford","model":"Explorer","year":"2025","trim":"ST / Platinum","category":"SUV","popular":true,"query":"Ford Explorer 2025 ST / Platinum"},{"brand":"Ford","model":"Expedition","year":"2025","trim":"Platinum / Tremor","category":"SUV","popular":true,"query":"Ford Expedition 2025 Platinum / Tremor"},{"brand":"Ford","model":"Ranger","year":"2025","trim":"Raptor / Wildtrak","category":"Pickup","popular":true,"query":"Ford Ranger 2025 Raptor / Wildtrak"},{"brand":"Ford","model":"Everest","year":"2025","trim":"Titanium / Sport","category":"SUV","popular":false,"query":"Ford Everest 2025 Titanium / Sport"},{"brand":"Chevrolet","model":"Tahoe","year":"2025","trim":"High Country / RST","category":"SUV","popular":true,"query":"Chevrolet Tahoe 2025 High Country / RST","uid":"43bb5051ace041988ae98998eab6a161"},{"brand":"Chevrolet","model":"Suburban","year":"2025","trim":"High Country / Z71","category":"SUV","popular":true,"query":"Chevrolet Suburban 2025 High Country / Z71"},{"brand":"Chevrolet","model":"Silverado 1500","year":"2025","trim":"RST / ZR2","category":"Pickup","popular":true,"query":"Chevrolet Silverado 1500 2025 RST / ZR2"},{"brand":"Chevrolet","model":"Corvette","year":"2025","trim":"C8 Stingray / Z06","category":"Sports","popular":false,"query":"Chevrolet Corvette 2025 C8 Stingray / Z06"},{"brand":"Chevrolet","model":"Camaro","year":"2023","trim":"SS / ZL1","category":"Sports","popular":false,"query":"Chevrolet Camaro 2023 SS / ZL1"},{"brand":"Chevrolet","model":"Captiva","year":"2025","trim":"Premier","category":"SUV","popular":false,"query":"Chevrolet Captiva 2025 Premier"},{"brand":"Chevrolet","model":"Groove","year":"2025","trim":"Premier","category":"SUV","popular":false,"query":"Chevrolet Groove 2025 Premier"},{"brand":"GMC","model":"Yukon","year":"2025","trim":"Denali / AT4","category":"SUV","popular":true,"query":"GMC Yukon 2025 Denali / AT4"},{"brand":"GMC","model":"Yukon","year":"2021","trim":"Denali","category":"SUV","popular":true,"query":"GMC Yukon 2021 Denali","uid":"7229130fbcfc4a3e81c657ccd30855ca"},{"brand":"GMC","model":"Sierra 1500","year":"2025","trim":"Denali / AT4X","category":"Pickup","popular":true,"query":"GMC Sierra 1500 2025 Denali / AT4X"},{"brand":"GMC","model":"Acadia","year":"2025","trim":"Denali / AT4","category":"SUV","popular":false,"query":"GMC Acadia 2025 Denali / AT4"},{"brand":"GMC","model":"Terrain","year":"2025","trim":"Denali","category":"SUV","popular":false,"query":"GMC Terrain 2025 Denali"},{"brand":"GMC","model":"Hummer EV","year":"2025","trim":"SUV / Pickup","category":"EV","popular":false,"query":"GMC Hummer EV 2025 SUV / Pickup"},{"brand":"Cadillac","model":"Escalade","year":"2025","trim":"Premium Luxury / V","category":"SUV","popular":true,"query":"Cadillac Escalade 2025 Premium Luxury / V"},{"brand":"Cadillac","model":"Escalade","year":"2021","trim":"Premium","category":"SUV","popular":true,"query":"Cadillac Escalade 2021 Premium","uid":"56c704d6b1ce473eb835023c18e3c3d6"},{"brand":"Cadillac","model":"Escalade IQ","year":"2025","trim":"Luxury / Sport","category":"EV","popular":false,"query":"Cadillac Escalade IQ 2025 Luxury / Sport"},{"brand":"Cadillac","model":"XT6","year":"2025","trim":"Premium Luxury","category":"SUV","popular":false,"query":"Cadillac XT6 2025 Premium Luxury"},{"brand":"Cadillac","model":"CT5","year":"2025","trim":"Sport / CT5-V","category":"Sedan","popular":false,"query":"Cadillac CT5 2025 Sport / CT5-V"},{"brand":"Cadillac","model":"Lyriq","year":"2025","trim":"Luxury / Sport","category":"EV","popular":false,"query":"Cadillac Lyriq 2025 Luxury / Sport"},{"brand":"Jeep","model":"Wrangler","year":"2024","trim":"Rubicon 392","category":"SUV","popular":true,"query":"Jeep Wrangler 2024 Rubicon 392","uid":"7247a74596224c3dadc219836430279c"},{"brand":"Jeep","model":"Wrangler","year":"2025","trim":"Rubicon / Sahara","category":"SUV","popular":true,"query":"Jeep Wrangler 2025 Rubicon / Sahara"},{"brand":"Jeep","model":"Grand Cherokee","year":"2025","trim":"Limited / Summit","category":"SUV","popular":true,"query":"Jeep Grand Cherokee 2025 Limited / Summit"},{"brand":"Jeep","model":"Gladiator","year":"2025","trim":"Rubicon","category":"Pickup","popular":false,"query":"Jeep Gladiator 2025 Rubicon"},{"brand":"RAM","model":"1500 TRX","year":"2021","trim":"TRX","category":"Pickup","popular":true,"query":"RAM 1500 TRX 2021 TRX","uid":"372fbf37230c46eca1997841bfaf0758"},{"brand":"RAM","model":"1500","year":"2025","trim":"Rebel / Limited","category":"Pickup","popular":true,"query":"RAM 1500 2025 Rebel / Limited"},{"brand":"Dodge","model":"Charger","year":"2023","trim":"R/T / SRT Hellcat","category":"Sports","popular":true,"query":"Dodge Charger 2023 R/T / SRT Hellcat"},{"brand":"Dodge","model":"Challenger","year":"2023","trim":"R/T / SRT Hellcat","category":"Sports","popular":true,"query":"Dodge Challenger 2023 R/T / SRT Hellcat"},{"brand":"Dodge","model":"Durango","year":"2024","trim":"SRT Hellcat","category":"SUV","popular":true,"query":"Dodge Durango 2024 SRT Hellcat"},{"brand":"Tesla","model":"Model Y","year":"2026","trim":"Performance","category":"EV","popular":true,"query":"Tesla Model Y 2026 Performance","uid":"8a0bc252f9da4015a02a7bd99efd4847"},{"brand":"Tesla","model":"Model Y","year":"2025","trim":"Juniper Long Range","category":"EV","popular":true,"query":"Tesla Model Y 2025 Juniper Long Range"},{"brand":"Tesla","model":"Model 3","year":"2025","trim":"Long Range / Performance","category":"EV","popular":true,"query":"Tesla Model 3 2025 Long Range / Performance"},{"brand":"Tesla","model":"Model S","year":"2024","trim":"Plaid","category":"EV","popular":false,"query":"Tesla Model S 2024 Plaid"},{"brand":"Tesla","model":"Model X","year":"2024","trim":"Plaid","category":"EV","popular":false,"query":"Tesla Model X 2024 Plaid"},{"brand":"Tesla","model":"Cybertruck","year":"2025","trim":"AWD / Cyberbeast","category":"EV","popular":false,"query":"Tesla Cybertruck 2025 AWD / Cyberbeast"},{"brand":"Honda","model":"Accord","year":"2025","trim":"EX / Touring","category":"Sedan","popular":true,"query":"Honda Accord 2025 EX / Touring"},{"brand":"Honda","model":"Civic","year":"2025","trim":"Sport / RS","category":"Sedan","popular":true,"query":"Honda Civic 2025 Sport / RS"},{"brand":"Honda","model":"CR-V","year":"2025","trim":"EX / Touring","category":"SUV","popular":true,"query":"Honda CR-V 2025 EX / Touring"},{"brand":"Honda","model":"Pilot","year":"2025","trim":"Touring / TrailSport","category":"SUV","popular":false,"query":"Honda Pilot 2025 Touring / TrailSport"},{"brand":"Honda","model":"HR-V","year":"2025","trim":"EX","category":"SUV","popular":true,"query":"Honda HR-V 2025 EX"},{"brand":"Honda","model":"ZR-V","year":"2025","trim":"Sport","category":"SUV","popular":false,"query":"Honda ZR-V 2025 Sport"},{"brand":"Hyundai","model":"Tucson","year":"2025","trim":"Premium / N Line","category":"SUV","popular":true,"query":"Hyundai Tucson 2025 Premium / N Line"},{"brand":"Hyundai","model":"Santa Fe","year":"2025","trim":"Calligraphy","category":"SUV","popular":true,"query":"Hyundai Santa Fe 2025 Calligraphy"},{"brand":"Hyundai","model":"Palisade","year":"2025","trim":"Calligraphy","category":"SUV","popular":true,"query":"Hyundai Palisade 2025 Calligraphy"},{"brand":"Hyundai","model":"Elantra","year":"2025","trim":"Smart / N Line","category":"Sedan","popular":true,"query":"Hyundai Elantra 2025 Smart / N Line"},{"brand":"Hyundai","model":"Sonata","year":"2025","trim":"N Line","category":"Sedan","popular":false,"query":"Hyundai Sonata 2025 N Line"},{"brand":"Hyundai","model":"Accent","year":"2025","trim":"Smart","category":"Sedan","popular":true,"query":"Hyundai Accent 2025 Smart"},{"brand":"Hyundai","model":"Creta","year":"2025","trim":"Premium","category":"SUV","popular":true,"query":"Hyundai Creta 2025 Premium"},{"brand":"Hyundai","model":"Ioniq 5","year":"2025","trim":"AWD / N","category":"EV","popular":false,"query":"Hyundai Ioniq 5 2025 AWD / N"},{"brand":"Hyundai","model":"Ioniq 6","year":"2025","trim":"AWD","category":"EV","popular":false,"query":"Hyundai Ioniq 6 2025 AWD"},{"brand":"Kia","model":"Sportage","year":"2025","trim":"GT-Line","category":"SUV","popular":true,"query":"Kia Sportage 2025 GT-Line"},{"brand":"Kia","model":"Sorento","year":"2025","trim":"GT-Line","category":"SUV","popular":true,"query":"Kia Sorento 2025 GT-Line"},{"brand":"Kia","model":"Telluride","year":"2025","trim":"SX Prestige","category":"SUV","popular":false,"query":"Kia Telluride 2025 SX Prestige"},{"brand":"Kia","model":"K5","year":"2025","trim":"GT-Line","category":"Sedan","popular":true,"query":"Kia K5 2025 GT-Line"},{"brand":"Kia","model":"K8","year":"2025","trim":"Signature","category":"Sedan","popular":false,"query":"Kia K8 2025 Signature"},{"brand":"Kia","model":"Carnival","year":"2025","trim":"Prestige","category":"MPV","popular":true,"query":"Kia Carnival 2025 Prestige"},{"brand":"Kia","model":"Seltos","year":"2025","trim":"GT-Line","category":"SUV","popular":true,"query":"Kia Seltos 2025 GT-Line"},{"brand":"Kia","model":"EV9","year":"2025","trim":"GT-Line","category":"EV","popular":false,"query":"Kia EV9 2025 GT-Line"},{"brand":"Kia","model":"EV6","year":"2025","trim":"GT / GT-Line","category":"EV","popular":false,"query":"Kia EV6 2025 GT / GT-Line"},{"brand":"Mitsubishi","model":"Pajero","year":"2015–2020","trim":"3.8 GLS","category":"SUV","popular":true,"query":"Mitsubishi Pajero 2015–2020 3.8 GLS"},{"brand":"Mitsubishi","model":"Montero Sport","year":"2025","trim":"GLS Premium","category":"SUV","popular":true,"query":"Mitsubishi Montero Sport 2025 GLS Premium"},{"brand":"Mitsubishi","model":"Outlander","year":"2025","trim":"Premium","category":"SUV","popular":true,"query":"Mitsubishi Outlander 2025 Premium"},{"brand":"Mitsubishi","model":"ASX","year":"2025","trim":"GLX","category":"SUV","popular":true,"query":"Mitsubishi ASX 2025 GLX"},{"brand":"Mitsubishi","model":"L200 / Triton","year":"2025","trim":"Double Cab","category":"Pickup","popular":true,"query":"Mitsubishi L200 / Triton 2025 Double Cab"},{"brand":"Suzuki","model":"Jimny","year":"2025","trim":"5-Door / GLX","category":"SUV","popular":true,"query":"Suzuki Jimny 2025 5-Door / GLX"},{"brand":"Suzuki","model":"Grand Vitara","year":"2025","trim":"GLX","category":"SUV","popular":true,"query":"Suzuki Grand Vitara 2025 GLX"},{"brand":"Suzuki","model":"Fronx","year":"2025","trim":"GLX","category":"SUV","popular":true,"query":"Suzuki Fronx 2025 GLX"},{"brand":"Suzuki","model":"Swift","year":"2025","trim":"GLX","category":"Hatchback","popular":true,"query":"Suzuki Swift 2025 GLX"},{"brand":"Mazda","model":"CX-5","year":"2025","trim":"Ignite / Signature","category":"SUV","popular":true,"query":"Mazda CX-5 2025 Ignite / Signature"},{"brand":"Mazda","model":"CX-60","year":"2025","trim":"High Plus","category":"SUV","popular":false,"query":"Mazda CX-60 2025 High Plus"},{"brand":"Mazda","model":"CX-90","year":"2025","trim":"Signature","category":"SUV","popular":false,"query":"Mazda CX-90 2025 Signature"},{"brand":"Mazda","model":"Mazda 3","year":"2025","trim":"Sedan / Hatchback","category":"Sedan","popular":true,"query":"Mazda Mazda 3 2025 Sedan / Hatchback"},{"brand":"Mazda","model":"Mazda 6","year":"2024","trim":"Signature","category":"Sedan","popular":true,"query":"Mazda Mazda 6 2024 Signature"},{"brand":"Volkswagen","model":"Golf GTI","year":"2025","trim":"GTI","category":"Hatchback","popular":true,"query":"Volkswagen Golf GTI 2025 GTI"},{"brand":"Volkswagen","model":"Tiguan","year":"2025","trim":"R-Line","category":"SUV","popular":true,"query":"Volkswagen Tiguan 2025 R-Line"},{"brand":"Volkswagen","model":"Touareg","year":"2025","trim":"R-Line","category":"SUV","popular":true,"query":"Volkswagen Touareg 2025 R-Line"},{"brand":"Volkswagen","model":"Teramont","year":"2025","trim":"R-Line","category":"SUV","popular":true,"query":"Volkswagen Teramont 2025 R-Line"},{"brand":"Volkswagen","model":"T-Roc","year":"2025","trim":"R-Line","category":"SUV","popular":false,"query":"Volkswagen T-Roc 2025 R-Line"},{"brand":"Volkswagen","model":"ID.4","year":"2025","trim":"Pro","category":"EV","popular":false,"query":"Volkswagen ID.4 2025 Pro"},{"brand":"Volvo","model":"XC90","year":"2025","trim":"Ultra / Recharge","category":"SUV","popular":true,"query":"Volvo XC90 2025 Ultra / Recharge"},{"brand":"Volvo","model":"XC60","year":"2025","trim":"Ultra / Recharge","category":"SUV","popular":true,"query":"Volvo XC60 2025 Ultra / Recharge"},{"brand":"Volvo","model":"S90","year":"2025","trim":"B5 / Recharge","category":"Sedan","popular":false,"query":"Volvo S90 2025 B5 / Recharge"},{"brand":"Volvo","model":"EX90","year":"2025","trim":"Twin Motor","category":"EV","popular":false,"query":"Volvo EX90 2025 Twin Motor"},{"brand":"Volvo","model":"EX30","year":"2025","trim":"Twin Motor","category":"EV","popular":false,"query":"Volvo EX30 2025 Twin Motor"},{"brand":"Bentley","model":"Bentayga","year":"2025","trim":"V8 / Speed","category":"SUV","popular":true,"query":"Bentley Bentayga 2025 V8 / Speed","uid":"7226918f03ed48548934325b7e613068"},{"brand":"Bentley","model":"Continental GT","year":"2026","trim":"GT Evo","category":"Sports","popular":true,"query":"Bentley Continental GT 2026 GT Evo","uid":"088ad5f4f38644a7baea2fd21aab62b6"},{"brand":"Bentley","model":"Continental GT","year":"2018","trim":"GT","category":"Sports","popular":false,"query":"Bentley Continental GT 2018 GT","uid":"229a4a6d8b7849fea2cf4f23510f9538"},{"brand":"Bentley","model":"Flying Spur","year":"2025","trim":"Speed","category":"Sedan","popular":true,"query":"Bentley Flying Spur 2025 Speed"},{"brand":"Rolls-Royce","model":"Cullinan","year":"2025","trim":"Black Badge / Series II","category":"SUV","popular":true,"query":"Rolls-Royce Cullinan 2025 Black Badge / Series II","uid":"420f96c1f8ea45898d4247b5d6b2aa6f"},{"brand":"Rolls-Royce","model":"Cullinan","year":"2019","trim":"Cullinan","category":"SUV","popular":true,"query":"Rolls-Royce Cullinan 2019 Cullinan","uid":"61f16a1d5be2403abcdd8fa552f730f7"},{"brand":"Rolls-Royce","model":"Ghost","year":"2025","trim":"Black Badge","category":"Sedan","popular":true,"query":"Rolls-Royce Ghost 2025 Black Badge"},{"brand":"Rolls-Royce","model":"Phantom","year":"2025","trim":"Extended","category":"Sedan","popular":false,"query":"Rolls-Royce Phantom 2025 Extended"},{"brand":"Rolls-Royce","model":"Spectre","year":"2025","trim":"EV Coupe","category":"EV","popular":false,"query":"Rolls-Royce Spectre 2025 EV Coupe"},{"brand":"Lamborghini","model":"Urus","year":"2025","trim":"Urus SE","category":"SUV","popular":true,"query":"Lamborghini Urus 2025 Urus SE","uid":"cc113385b7e34481af5e50a2fb8b6b2e"},{"brand":"Lamborghini","model":"Urus","year":"2024","trim":"Performante","category":"SUV","popular":true,"query":"Lamborghini Urus 2024 Performante"},{"brand":"Lamborghini","model":"Revuelto","year":"2025","trim":"V12 Hybrid","category":"Sports","popular":false,"query":"Lamborghini Revuelto 2025 V12 Hybrid"},{"brand":"Lamborghini","model":"Huracán","year":"2023","trim":"STO","category":"Sports","popular":false,"query":"Lamborghini Huracán 2023 STO","uid":"19c4d3f7679e4765ac1f9c3be12c0899"},{"brand":"Lamborghini","model":"Huracán","year":"2022","trim":"Tecnica","category":"Sports","popular":false,"query":"Lamborghini Huracán 2022 Tecnica","uid":"fe975345e4eb4438b5e192e19691430d"},{"brand":"Lamborghini","model":"Temerario","year":"2025","trim":"V8 Hybrid","category":"Sports","popular":false,"query":"Lamborghini Temerario 2025 V8 Hybrid"},{"brand":"Ferrari","model":"Purosangue","year":"2025","trim":"V12","category":"SUV","popular":true,"query":"Ferrari Purosangue 2025 V12"},{"brand":"Ferrari","model":"296","year":"2022","trim":"296 GTB","category":"Sports","popular":false,"query":"Ferrari 296 2022 296 GTB","uid":"269f4fd01b584dd38f7e512de60c4645"},{"brand":"Ferrari","model":"296","year":"2023","trim":"296 GTS","category":"Sports","popular":false,"query":"Ferrari 296 2023 296 GTS","uid":"9a596b9d09414adfad64fc1f5fd019f9"},{"brand":"Ferrari","model":"SF90","year":"2024","trim":"Stradale / Spider","category":"Sports","popular":false,"query":"Ferrari SF90 2024 Stradale / Spider"},{"brand":"Ferrari","model":"Roma","year":"2024","trim":"Roma Spider","category":"Sports","popular":false,"query":"Ferrari Roma 2024 Roma Spider"},{"brand":"Ferrari","model":"12Cilindri","year":"2025","trim":"Coupe","category":"Sports","popular":false,"query":"Ferrari 12Cilindri 2025 Coupe"},{"brand":"Maserati","model":"Grecale","year":"2025","trim":"Trofeo","category":"SUV","popular":false,"query":"Maserati Grecale 2025 Trofeo"},{"brand":"Maserati","model":"Levante","year":"2024","trim":"Trofeo","category":"SUV","popular":true,"query":"Maserati Levante 2024 Trofeo"},{"brand":"Maserati","model":"GranTurismo","year":"2025","trim":"Trofeo / Folgore","category":"Sports","popular":false,"query":"Maserati GranTurismo 2025 Trofeo / Folgore"},{"brand":"Maserati","model":"MC20","year":"2025","trim":"Cielo / Coupe","category":"Sports","popular":false,"query":"Maserati MC20 2025 Cielo / Coupe"},{"brand":"Aston Martin","model":"DBX","year":"2025","trim":"DBX707","category":"SUV","popular":true,"query":"Aston Martin DBX 2025 DBX707"},{"brand":"Aston Martin","model":"DB12","year":"2025","trim":"Coupe / Volante","category":"Sports","popular":false,"query":"Aston Martin DB12 2025 Coupe / Volante"},{"brand":"Aston Martin","model":"Vantage","year":"2025","trim":"V8","category":"Sports","popular":false,"query":"Aston Martin Vantage 2025 V8"},{"brand":"McLaren","model":"750S","year":"2025","trim":"Coupe / Spider","category":"Sports","popular":false,"query":"McLaren 750S 2025 Coupe / Spider"},{"brand":"McLaren","model":"Artura","year":"2025","trim":"Coupe / Spider","category":"Sports","popular":false,"query":"McLaren Artura 2025 Coupe / Spider"},{"brand":"McLaren","model":"720S","year":"2023","trim":"Coupe","category":"Sports","popular":false,"query":"McLaren 720S 2023 Coupe"},{"brand":"McLaren","model":"GT","year":"2024","trim":"GT","category":"Sports","popular":false,"query":"McLaren GT 2024 GT"},{"brand":"Genesis","model":"GV80","year":"2025","trim":"3.5T Prestige","category":"SUV","popular":true,"query":"Genesis GV80 2025 3.5T Prestige"},{"brand":"Genesis","model":"GV70","year":"2025","trim":"3.5T Sport","category":"SUV","popular":true,"query":"Genesis GV70 2025 3.5T Sport"},{"brand":"Genesis","model":"G80","year":"2025","trim":"3.5T","category":"Sedan","popular":false,"query":"Genesis G80 2025 3.5T"},{"brand":"Genesis","model":"G90","year":"2025","trim":"Long Wheelbase","category":"Sedan","popular":false,"query":"Genesis G90 2025 Long Wheelbase"},{"brand":"Infiniti","model":"QX80","year":"2025","trim":"Autograph","category":"SUV","popular":true,"query":"Infiniti QX80 2025 Autograph"},{"brand":"Infiniti","model":"QX60","year":"2025","trim":"Autograph","category":"SUV","popular":true,"query":"Infiniti QX60 2025 Autograph"},{"brand":"Infiniti","model":"Q50","year":"2024","trim":"Red Sport 400","category":"Sedan","popular":false,"query":"Infiniti Q50 2024 Red Sport 400"},{"brand":"Lincoln","model":"Navigator","year":"2025","trim":"Black Label","category":"SUV","popular":true,"query":"Lincoln Navigator 2025 Black Label"},{"brand":"Lincoln","model":"Aviator","year":"2025","trim":"Reserve","category":"SUV","popular":false,"query":"Lincoln Aviator 2025 Reserve"},{"brand":"Jetour","model":"T2","year":"2025","trim":"Luxury / 4WD","category":"SUV","popular":true,"query":"Jetour T2 2025 Luxury / 4WD","uid":"75eb2bdf00a14fe3b6a0900ca62829ae"},{"brand":"Jetour","model":"X90 Plus","year":"2025","trim":"Luxury","category":"SUV","popular":true,"query":"Jetour X90 Plus 2025 Luxury"},{"brand":"Jetour","model":"X70 Plus","year":"2025","trim":"Luxury","category":"SUV","popular":true,"query":"Jetour X70 Plus 2025 Luxury"},{"brand":"GWM TANK","model":"TANK 300","year":"2025","trim":"Conqueror","category":"SUV","popular":true,"query":"GWM TANK TANK 300 2025 Conqueror"},{"brand":"GWM TANK","model":"TANK 500","year":"2025","trim":"Ultra / HEV","category":"SUV","popular":true,"query":"GWM TANK TANK 500 2025 Ultra / HEV","uid":"a1eb44302870472db31cacb2c1d9dd01"},{"brand":"Haval","model":"H6","year":"2025","trim":"Premium / Hybrid","category":"SUV","popular":true,"query":"Haval H6 2025 Premium / Hybrid"},{"brand":"Haval","model":"H9","year":"2025","trim":"Ultra","category":"SUV","popular":true,"query":"Haval H9 2025 Ultra"},{"brand":"Haval","model":"Jolion","year":"2025","trim":"Premium / Hybrid","category":"SUV","popular":true,"query":"Haval Jolion 2025 Premium / Hybrid"},{"brand":"GAC","model":"GS8","year":"2025","trim":"GL / GX","category":"SUV","popular":true,"query":"GAC GS8 2025 GL / GX","uid":"ac0182f58a8642379e9c7ebe80243e08"},{"brand":"GAC","model":"Emkoo","year":"2025","trim":"GL / Hybrid","category":"SUV","popular":true,"query":"GAC Emkoo 2025 GL / Hybrid"},{"brand":"GAC","model":"Empow","year":"2025","trim":"Sport / R","category":"Sedan","popular":true,"query":"GAC Empow 2025 Sport / R"},{"brand":"Changan","model":"CS95","year":"2025","trim":"Royal","category":"SUV","popular":true,"query":"Changan CS95 2025 Royal"},{"brand":"Changan","model":"UNI-K","year":"2025","trim":"Platinum","category":"SUV","popular":true,"query":"Changan UNI-K 2025 Platinum"},{"brand":"Changan","model":"UNI-V","year":"2025","trim":"Sport","category":"Sedan","popular":true,"query":"Changan UNI-V 2025 Sport"},{"brand":"Changan","model":"CS75 Plus","year":"2025","trim":"Limited","category":"SUV","popular":true,"query":"Changan CS75 Plus 2025 Limited"},{"brand":"Deepal","model":"S07","year":"2025","trim":"REEV / EV","category":"EV","popular":true,"query":"Deepal S07 2025 REEV / EV"},{"brand":"Deepal","model":"S05","year":"2025","trim":"EV","category":"EV","popular":false,"query":"Deepal S05 2025 EV"},{"brand":"Geely","model":"Monjaro","year":"2025","trim":"GF+ / Luxury","category":"SUV","popular":true,"query":"Geely Monjaro 2025 GF+ / Luxury","uid":"f935677e4b784c3e8f11cf5ad6695756"},{"brand":"Geely","model":"Coolray","year":"2025","trim":"Sport","category":"SUV","popular":true,"query":"Geely Coolray 2025 Sport"},{"brand":"Geely","model":"Emgrand","year":"2025","trim":"GL","category":"Sedan","popular":true,"query":"Geely Emgrand 2025 GL"},{"brand":"Geely","model":"Preface","year":"2025","trim":"Luxury","category":"Sedan","popular":false,"query":"Geely Preface 2025 Luxury"},{"brand":"MG","model":"RX8","year":"2024","trim":"Black Edition","category":"SUV","popular":true,"query":"MG RX8 2024 Black Edition"},{"brand":"MG","model":"RX5","year":"2025","trim":"Luxury","category":"SUV","popular":true,"query":"MG RX5 2025 Luxury"},{"brand":"MG","model":"HS","year":"2025","trim":"Trophy","category":"SUV","popular":true,"query":"MG HS 2025 Trophy"},{"brand":"MG","model":"ZS","year":"2025","trim":"Luxury","category":"SUV","popular":true,"query":"MG ZS 2025 Luxury"},{"brand":"MG","model":"GT","year":"2025","trim":"Luxury","category":"Sedan","popular":true,"query":"MG GT 2025 Luxury"},{"brand":"BYD","model":"Seal","year":"2025","trim":"Performance AWD","category":"EV","popular":true,"query":"BYD Seal 2025 Performance AWD"},{"brand":"BYD","model":"Atto 3","year":"2025","trim":"Premium","category":"EV","popular":true,"query":"BYD Atto 3 2025 Premium"},{"brand":"BYD","model":"Song Plus","year":"2025","trim":"DM-i / EV","category":"SUV","popular":true,"query":"BYD Song Plus 2025 DM-i / EV"},{"brand":"BYD","model":"Han","year":"2025","trim":"AWD","category":"EV","popular":false,"query":"BYD Han 2025 AWD"},{"brand":"BYD","model":"Tang","year":"2025","trim":"AWD","category":"EV","popular":false,"query":"BYD Tang 2025 AWD"},{"brand":"Zeekr","model":"001","year":"2024","trim":"Performance / Privilege","category":"EV","popular":true,"query":"Zeekr 001 2024 Performance / Privilege","uid":"69b794b42cc54a828416d96c7002ac82"},{"brand":"Zeekr","model":"X","year":"2025","trim":"AWD","category":"EV","popular":true,"query":"Zeekr X 2025 AWD"},{"brand":"Zeekr","model":"7X","year":"2025","trim":"AWD","category":"EV","popular":true,"query":"Zeekr 7X 2025 AWD"},{"brand":"Zeekr","model":"009","year":"2025","trim":"Grand / AWD","category":"EV","popular":false,"query":"Zeekr 009 2025 Grand / AWD"},{"brand":"Hongqi","model":"E-HS9","year":"2025","trim":"Executive / President","category":"EV","popular":true,"query":"Hongqi E-HS9 2025 Executive / President","uid":"6af0940afd2d4f57ad9fbd6f588e1d5a"},{"brand":"Hongqi","model":"HS5","year":"2025","trim":"Luxury","category":"SUV","popular":true,"query":"Hongqi HS5 2025 Luxury"},{"brand":"Hongqi","model":"H9","year":"2025","trim":"Executive","category":"Sedan","popular":true,"query":"Hongqi H9 2025 Executive"},{"brand":"Hongqi","model":"HS7","year":"2025","trim":"Luxury","category":"SUV","popular":false,"query":"Hongqi HS7 2025 Luxury"},{"brand":"Exeed","model":"VX","year":"2025","trim":"Executive","category":"SUV","popular":true,"query":"Exeed VX 2025 Executive"},{"brand":"Exeed","model":"RX","year":"2025","trim":"Flagship","category":"SUV","popular":true,"query":"Exeed RX 2025 Flagship"},{"brand":"Exeed","model":"TXL","year":"2025","trim":"Flagship","category":"SUV","popular":true,"query":"Exeed TXL 2025 Flagship"},{"brand":"Chery","model":"Tiggo 8 Pro Max","year":"2025","trim":"Flagship AWD","category":"SUV","popular":true,"query":"Chery Tiggo 8 Pro Max 2025 Flagship AWD"},{"brand":"Chery","model":"Tiggo 7 Pro Max","year":"2025","trim":"Flagship","category":"SUV","popular":true,"query":"Chery Tiggo 7 Pro Max 2025 Flagship"},{"brand":"Chery","model":"Arrizo 8","year":"2025","trim":"Luxury","category":"Sedan","popular":true,"query":"Chery Arrizo 8 2025 Luxury"},{"brand":"Jaecoo","model":"J7","year":"2025","trim":"Luxury / AWD","category":"SUV","popular":true,"query":"Jaecoo J7 2025 Luxury / AWD"},{"brand":"Jaecoo","model":"J8","year":"2025","trim":"Flagship AWD","category":"SUV","popular":true,"query":"Jaecoo J8 2025 Flagship AWD"},{"brand":"OMODA","model":"C5","year":"2025","trim":"Luxury","category":"SUV","popular":true,"query":"OMODA C5 2025 Luxury"},{"brand":"ROX","model":"ROX 01","year":"2025","trim":"6-Seater / 7-Seater","category":"SUV","popular":true,"query":"ROX ROX 01 2025 6-Seater / 7-Seater"},{"brand":"Lynk & Co","model":"03","year":"2025","trim":"2.0T / +","category":"Sedan","popular":false,"query":"Lynk & Co 03 2025 2.0T / +"},{"brand":"Lynk & Co","model":"09","year":"2025","trim":"Ultra","category":"SUV","popular":false,"query":"Lynk & Co 09 2025 Ultra"},{"brand":"Subaru","model":"WRX","year":"2025","trim":"GT / tS","category":"Sports","popular":false,"query":"Subaru WRX 2025 GT / tS"},{"brand":"Subaru","model":"Forester","year":"2025","trim":"Touring","category":"SUV","popular":false,"query":"Subaru Forester 2025 Touring"},{"brand":"Subaru","model":"Outback","year":"2025","trim":"Touring XT","category":"SUV","popular":false,"query":"Subaru Outback 2025 Touring XT"},{"brand":"Isuzu","model":"D-Max","year":"2025","trim":"X-Terrain","category":"Pickup","popular":true,"query":"Isuzu D-Max 2025 X-Terrain"},{"brand":"Isuzu","model":"MU-X","year":"2025","trim":"LS-T","category":"SUV","popular":false,"query":"Isuzu MU-X 2025 LS-T"},{"brand":"Peugeot","model":"3008","year":"2025","trim":"GT","category":"SUV","popular":false,"query":"Peugeot 3008 2025 GT"},{"brand":"Peugeot","model":"5008","year":"2025","trim":"GT","category":"SUV","popular":false,"query":"Peugeot 5008 2025 GT"},{"brand":"Renault","model":"Koleos","year":"2024","trim":"LE","category":"SUV","popular":false,"query":"Renault Koleos 2024 LE"},{"brand":"Renault","model":"Duster","year":"2025","trim":"Iconic","category":"SUV","popular":true,"query":"Renault Duster 2025 Iconic"},{"brand":"MINI","model":"Countryman","year":"2025","trim":"JCW / S ALL4","category":"SUV","popular":false,"query":"MINI Countryman 2025 JCW / S ALL4"},{"brand":"MINI","model":"Cooper","year":"2025","trim":"S / JCW","category":"Hatchback","popular":false,"query":"MINI Cooper 2025 S / JCW"}];
+
+/* Small self-contained Sketchfab Viewer API bridge.
+   This removes the dependency on an external JS library, which is important
+   when the HTML is opened locally as edge://external-file or file://. */
+class SFBridge {
+  constructor(version, iframe){
+    this.version=version || "1.12.0";
+    this.iframe=iframe;
+    this.domain="https://sketchfab.com";
+    window.__sfCounter=(window.__sfCounter||0)+1;
+    this.id=String(window.__sfCounter)+"_"+(iframe.id||"viewer");
+    this.pending={}; this.listeners={}; this.requestId=0; this.ready=false; this.destroyed=false;
+    this._onMessage=this._onMessage.bind(this);
+    window.addEventListener("message",this._onMessage);
+  }
+  init(uid, options={}){
+    this.uid=uid; this.options=options;
+    this.iframe.allow=this.iframe.allow || "vr; autoplay; fullscreen";
+    const params=new URLSearchParams();
+    params.set("api_version",this.version); params.set("api_id",this.id);
+    Object.entries(options).forEach(([k,v])=>{
+      if(v!==null && v!==undefined && typeof v!=="function") params.set(k,String(v));
+    });
+    this.iframe.src=`https://sketchfab.com/models/${encodeURIComponent(uid)}/embed?${params.toString()}`;
+  }
+  _post(msg){ if(!this.destroyed && this.iframe.contentWindow) this.iframe.contentWindow.postMessage(msg,this.domain); }
+  _onMessage(event){
+    if(this.destroyed || event.origin!==this.domain || !event.data || event.data.instanceId!==this.id) return;
+    const d=event.data;
+    if(d.type==="api.ready"){
+      if(d.error){ this.options.error?.(d.error); return; }
+      const rid=this.requestId++;
+      this.pending[rid]=(...results)=>{
+        const [err, version, members]=results;
+        if(err){ this.options.error?.(err); return; }
+        this.api=this._makeAPI(Array.isArray(members)?members:[]);
+        this.options.success?.(this.api);
+      };
+      this._post({type:"api.initialize",requestId:rid,name:this.version,instanceId:this.id});
+      return;
+    }
+    if(d.type==="api.initialize.result" || d.type==="api.request.result"){
+      const cb=this.pending[d.requestId];
+      if(cb){ delete this.pending[d.requestId]; cb(...(d.results||[])); }
+      return;
+    }
+    if(d.type==="api.event"){
+      const results=d.results||[], name=results[0], args=results.slice(1);
+      if(name==="viewerready") this.ready=true;
+      (this.listeners[name]||[]).forEach(fn=>{try{fn(...args)}catch(e){console.error(e)}});
+      (this.listeners["*"]||[]).forEach(fn=>{try{fn(name,...args)}catch(e){console.error(e)}});
+    }
+  }
+  _makeAPI(members){
+    const api={};
+    members.forEach(name=>{
+      api[name]=(...args)=>{
+        let cb=null;
+        if(args.length && typeof args[args.length-1]==="function") cb=args.pop();
+        const rid=this.requestId++;
+        if(cb) this.pending[rid]=(...results)=>cb(...results);
+        this._post({type:"api.request",instanceId:this.id,requestId:rid,member:name,arguments:args});
+      };
+    });
+    api.addEventListener=(name,fn,opts)=>{
+      if(name==="viewerready" && this.ready) setTimeout(fn,0);
+      (this.listeners[name]||(this.listeners[name]=[])).push(fn);
+      if(opts && api.setListenerOptions){ opts.name=name; api.setListenerOptions(opts); }
+    };
+    api.removeEventListener=(name,fn)=>{
+      const a=this.listeners[name]||[], i=a.indexOf(fn); if(i>=0)a.splice(i,1);
+    };
+    return api;
+  }
+  destroy(){
+    this.destroyed=true;
+    window.removeEventListener("message",this._onMessage);
+    this.pending={}; this.listeners={};
+  }
+}
+
+const iframe=document.getElementById("api-frame");
+const loading=document.getElementById("loading"), loadingText=document.getElementById("loadingText");
+const statusEl=document.getElementById("loadStatus"), detectEl=document.getElementById("paintDetection");
+const brandSelect=document.getElementById("brandSelect"), modelSelect=document.getElementById("modelSelect"), variantSelect=document.getElementById("variantSelect");
+const selectedName=document.getElementById("selectedName"), selectedMeta=document.getElementById("selectedMeta"), sourceLink=document.getElementById("sourceLink");
+const alternateBtn=document.getElementById("tryAlternate"), materialListEl=document.getElementById("materialList");
+const searchCache=new Map();
+let activeFilter="all", bridge=null, api=null, materials=[], selectedMaterialIds=new Set(), currentColor="#20242a";
+let candidateModels=[], candidateIndex=0, currentResolved=null, loadSerial=0;
+
+const PAINT_WORDS=/(paint|body|carpaint|car paint|exterior|bodywork|shell|hood|bonnet|door|doors|fender|quarter|roof|bumper|metallic|colour|color|mainbody|main_body|car_body)/i;
+const EXCLUDE_WORDS=/(glass|window|windshield|windscreen|tire|tyre|rubber|wheel|rim|brake|disc|caliper|light|lamp|headlight|taillight|chrome|interior|seat|dashboard|screen|mirror|badge|logo|emblem|carbon|grille|grill|license|plate|engine|exhaust)/i;
+
+function unique(a){return [...new Set(a)]}
+function nrm(s){return String(s||"").toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}]+/gu," ").trim()}
+function label(c){return `${c.brand} ${c.model} — ${c.year} ${c.trim}`}
+function currentPool(){
+  if(activeFilter==="all") return CARS;
+  if(activeFilter==="popular") return CARS.filter(c=>c.popular);
+  return CARS.filter(c=>c.category===activeFilter);
+}
+function filteredForBrand(){
+  const p=currentPool(), brands=new Set(p.map(c=>c.brand));
+  return p.length?p:CARS;
+}
+function updateStats(){
+  document.getElementById("carCount").textContent=CARS.length;
+  document.getElementById("brandCount").textContent=unique(CARS.map(c=>c.brand)).length;
+  document.getElementById("popularCount").textContent=CARS.filter(c=>c.popular).length;
+  document.getElementById("carSuggestions").innerHTML=CARS.map((c,i)=>`<option value="${escapeHtml(label(c))}" data-index="${i}"></option>`).join("");
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+
+function refreshBrands(preferBrand){
+  const pool=currentPool();
+  let brands=unique(pool.map(c=>c.brand));
+  if(!brands.length) brands=unique(CARS.map(c=>c.brand));
+  const uaeOrder=["Toyota","Nissan","Lexus","Mercedes-Benz","Land Rover","BMW","Audi","Porsche","Ford","Chevrolet","GMC","Cadillac","Jeep","Jetour","GWM TANK","GAC","Geely","Changan","Haval","BYD","Zeekr"];
+  brands.sort((a,b)=>{
+    const ia=uaeOrder.indexOf(a),ib=uaeOrder.indexOf(b);
+    if(ia>=0||ib>=0)return (ia<0?999:ia)-(ib<0?999:ib);
+    return a.localeCompare(b);
+  });
+  brandSelect.innerHTML=brands.map(b=>`<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join("");
+  if(preferBrand && brands.includes(preferBrand)) brandSelect.value=preferBrand;
+  else if(brands.includes("Toyota")) brandSelect.value="Toyota";
+  refreshModels();
+}
+function refreshModels(preferModel){
+  const pool=currentPool().filter(c=>c.brand===brandSelect.value);
+  const fallback=CARS.filter(c=>c.brand===brandSelect.value);
+  const list=pool.length?pool:fallback;
+  const models=unique(list.map(c=>c.model));
+  modelSelect.innerHTML=models.map(m=>`<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join("");
+  if(preferModel && models.includes(preferModel)) modelSelect.value=preferModel;
+  refreshVariants();
+}
+function refreshVariants(preferKey){
+  let list=currentPool().filter(c=>c.brand===brandSelect.value && c.model===modelSelect.value);
+  if(!list.length) list=CARS.filter(c=>c.brand===brandSelect.value && c.model===modelSelect.value);
+  variantSelect.innerHTML=list.map((c,i)=>`<option value="${i}">${c.popular?"🇦🇪 ":""}${escapeHtml(c.year)} — ${escapeHtml(c.trim)}</option>`).join("");
+  if(preferKey){
+    const i=list.findIndex(c=>label(c)===preferKey);
+    if(i>=0) variantSelect.value=String(i);
+  }
+  loadSelectedCar();
+}
+function currentCar(){
+  let list=currentPool().filter(c=>c.brand===brandSelect.value && c.model===modelSelect.value);
+  if(!list.length) list=CARS.filter(c=>c.brand===brandSelect.value && c.model===modelSelect.value);
+  return list[Number(variantSelect.value)||0]||list[0];
+}
+
+async function resolveCar3D(car, forceSearch=false){
+  if(car.uid && !forceSearch){
+    return [{uid:car.uid,name:label(car),score:999,source:`https://sketchfab.com/models/${car.uid}`,curated:true}];
+  }
+  const cacheKey=nrm(car.query);
+  if(!forceSearch && searchCache.has(cacheKey)) return searchCache.get(cacheKey);
+
+  loadingText.textContent=`Finding a 3D ${car.brand} ${car.model}…`;
+  statusEl.className="status";
+  statusEl.textContent="Searching the public 3D catalog for the closest matching vehicle…";
+  const q=car.query || `${car.brand} ${car.model} ${car.year} ${car.trim}`;
+  const url=`https://api.sketchfab.com/v3/search?type=models&count=24&q=${encodeURIComponent(q)}`;
+  let res;
+  try{
+    res=await fetch(url,{method:"GET",mode:"cors",cache:"no-store"});
+  }catch(e){
+    throw new Error("SEARCH_NETWORK");
+  }
+  if(!res.ok) throw new Error("SEARCH_HTTP_"+res.status);
+  const data=await res.json();
+  const found=(data.results||[]).filter(x=>x&&x.uid);
+  const scored=found.map(x=>({
+    uid:x.uid,
+    name:x.name||"Sketchfab model",
+    source:`https://sketchfab.com/models/${x.uid}`,
+    likeCount:x.likeCount||0,
+    score:scoreCandidate(x,car),
+    curated:false
+  })).sort((a,b)=>b.score-a.score);
+  const good=scored.filter(x=>x.score>=5).slice(0,8);
+  const out=good.length?good:scored.slice(0,5);
+  searchCache.set(cacheKey,out);
+  return out;
+}
+function scoreCandidate(x,car){
+  const name=nrm(x.name||"");
+  const brand=nrm(car.brand), model=nrm(car.model), year=nrm(car.year), trim=nrm(car.trim);
+  let score=0;
+  const bt=brand.split(" ").filter(t=>t.length>1), mt=model.split(" ").filter(t=>t.length>1), yt=year.match(/\d{4}/g)||[];
+  bt.forEach(t=>{if(name.includes(t))score+=3});
+  mt.forEach(t=>{if(name.includes(t))score+=6});
+  yt.forEach(t=>{if(name.includes(t))score+=2});
+  trim.split(" ").filter(t=>t.length>3).forEach(t=>{if(name.includes(t))score+=1.2});
+  if(name.includes(nrm(car.model)))score+=8;
+  if(name.includes(nrm(`${car.brand} ${car.model}`)))score+=8;
+  if(/wheel|rim|seat|interior only|hot wheels|toy|lego|police|wreck|damaged|ps1|low poly|low-poly/.test(name))score-=8;
+  score+=Math.min(3,Math.log10(1+(x.likeCount||0)));
+  return score;
+}
+
+async function loadSelectedCar(forceSearch=false){
+  const car=currentCar(); if(!car)return;
+  const serial=++loadSerial;
+  api=null;materials=[];selectedMaterialIds.clear();candidateModels=[];candidateIndex=0;currentResolved=null;
+  materialListEl.innerHTML='<div class="note">Materials will appear after the car loads.</div>';
+  detectEl.className="status";detectEl.textContent="Waiting for car materials…";
+  alternateBtn.disabled=true;
+
+  selectedName.textContent=`${car.brand} ${car.model}`;
+  selectedMeta.textContent=`${car.year} • ${car.trim} • ${car.category}${car.popular?" • 🇦🇪 UAE-focused":""}`;
+  sourceLink.href="#";
+  loading.classList.add("show");
+  loadingText.textContent=`Preparing ${car.brand} ${car.model}…`;
+  statusEl.className="status";statusEl.textContent=car.uid&&!forceSearch?"Loading a curated 3D model…":"Finding the closest 3D model automatically…";
+
+  try{
+    candidateModels=await resolveCar3D(car,forceSearch);
+    if(serial!==loadSerial)return;
+    if(!candidateModels.length) throw new Error("NO_MATCH");
+    alternateBtn.disabled=candidateModels.length<2;
+    loadCandidate(0,serial);
+  }catch(err){
+    if(serial!==loadSerial)return;
+    loading.classList.remove("show");
+    iframe.src="";
+    statusEl.className="status err";
+    if(String(err.message)==="SEARCH_NETWORK"){
+      statusEl.textContent="3D search could not connect from this local browser. Curated cars still work. For the full auto-search catalog, host this HTML on GitHub Pages or open it from an HTTPS website.";
+    }else if(String(err.message)==="NO_MATCH"){
+      statusEl.textContent="No sufficiently close public 3D model was found for this exact car yet. Try another year/trim or choose another vehicle.";
+    }else{
+      statusEl.textContent="The online 3D search failed. Try Re-find 3D or select another vehicle.";
+    }
+  }
+}
+function loadCandidate(index,serial=loadSerial){
+  if(!candidateModels.length)return;
+  candidateIndex=(index+candidateModels.length)%candidateModels.length;
+  const candidate=candidateModels[candidateIndex];
+  currentResolved=candidate;
+  const car=currentCar();
+  sourceLink.href=candidate.source;
+  selectedMeta.textContent=`${car.year} • ${car.trim} • ${candidate.curated?"curated 3D match":"auto-matched 3D"}${candidateModels.length>1?` • match ${candidateIndex+1}/${candidateModels.length}`:""}`;
+  statusEl.className="status"; statusEl.textContent=`Loading: ${candidate.name}`;
+  loading.classList.add("show"); loadingText.textContent=`Loading ${candidate.name}…`;
+
+  if(bridge) bridge.destroy();
+  bridge=new SFBridge("1.12.0",iframe);
+  bridge.init(candidate.uid,{
+    autostart:1,preload:1,ui_infos:0,ui_annotations:0,ui_help:0,ui_stop:0,
+    ui_inspector:0,ui_settings:1,ui_controls:1,ui_fullscreen:1,ui_vr:0,
+    success:function(newApi){
+      if(serial!==loadSerial)return;
+      api=newApi;
+      if(api.start)api.start();
+      api.addEventListener("viewerready",()=>{
+        if(serial!==loadSerial)return;
+        loading.classList.remove("show");
+        statusEl.className="status ok";
+        statusEl.textContent=`3D car loaded${candidate.curated?" from a curated match":" from the closest available match"}. Drag or swipe to rotate freely.`;
+        readMaterials();
+      });
+    },
+    error:function(){
+      if(serial!==loadSerial)return;
+      loading.classList.remove("show");
+      statusEl.className="status err";
+      statusEl.textContent="This particular public 3D model is unavailable for embedding. Use “Try another 3D” if available.";
+    }
+  });
+}
+
+function readMaterials(){
+  if(!api||!api.getMaterialList)return;
+  api.getMaterialList((err,list)=>{
+    if(err||!Array.isArray(list)){
+      detectEl.className="status warn";detectEl.textContent="The car loaded, but its material list could not be read automatically.";return;
+    }
+    materials=list;autoDetectPaint(true);renderMaterials();applyPaint();
+  });
+}
+function autoDetectPaint(initial=false){
+  selectedMaterialIds.clear();
+  let candidates=materials.filter(m=>PAINT_WORDS.test(m.name||"")&&!EXCLUDE_WORDS.test(m.name||""));
+  candidates.forEach(m=>selectedMaterialIds.add(m.id));
+  if(!selectedMaterialIds.size){
+    const soft=materials.filter(m=>{
+      const n=(m.name||"").toLowerCase(),has=!!(m.channels&&(m.channels.AlbedoPBR||m.channels.DiffuseColor));
+      return has&&!EXCLUDE_WORDS.test(n);
+    });
+    soft.slice(0,Math.min(3,soft.length)).forEach(m=>selectedMaterialIds.add(m.id));
+  }
+  const count=selectedMaterialIds.size;
+  detectEl.className=count?"status ok":"status warn";
+  detectEl.textContent=count?`${count} likely exterior material${count===1?"":"s"} selected automatically. If a non-body part changes color, open Advanced and untick it.`:"No body-paint material was identified automatically. Select it manually under Advanced.";
+  if(!initial)renderMaterials();
+}
+function renderMaterials(){
+  const q=nrm(document.getElementById("materialSearch").value);
+  const shown=materials.filter(m=>nrm(m.name||"Unnamed material").includes(q));
+  materialListEl.innerHTML="";
+  if(!shown.length){materialListEl.innerHTML='<div class="note">No matching materials.</div>';return}
+  shown.forEach(m=>{
+    const row=document.createElement("label");row.className="mat-row";
+    const cb=document.createElement("input");cb.type="checkbox";cb.checked=selectedMaterialIds.has(m.id);
+    const span=document.createElement("span");span.textContent=m.name||"Unnamed material";
+    row.append(cb,span);materialListEl.append(row);
+    cb.addEventListener("change",()=>{
+      if(cb.checked)selectedMaterialIds.add(m.id);else selectedMaterialIds.delete(m.id);
+      applyPaint();
+      detectEl.className=selectedMaterialIds.size?"status ok":"status warn";
+      detectEl.textContent=selectedMaterialIds.size?`${selectedMaterialIds.size} paintable material${selectedMaterialIds.size===1?"":"s"} selected.`:"Select at least one body material.";
+    });
+  });
+}
+function hexRgb(hex){const n=parseInt(hex.slice(1),16);return[((n>>16)&255)/255,((n>>8)&255)/255,(n&255)/255]}
+function applyPaint(){
+  if(!api||!materials.length||!selectedMaterialIds.size||!api.setMaterial)return;
+  const rgb=hexRgb(currentColor),metal=Number(document.getElementById("metalness").value),rough=Number(document.getElementById("roughness").value);
+  materials.forEach(m=>{
+    if(!selectedMaterialIds.has(m.id))return;
+    if(m.channels?.AlbedoPBR){m.channels.AlbedoPBR.color=[...rgb];if("factor"in m.channels.AlbedoPBR)m.channels.AlbedoPBR.factor=1}
+    if(m.channels?.DiffuseColor)m.channels.DiffuseColor.color=[...rgb];
+    if(m.channels?.MetalnessPBR){m.channels.MetalnessPBR.enable=true;m.channels.MetalnessPBR.factor=metal}
+    if(m.channels?.RoughnessPBR){m.channels.RoughnessPBR.enable=true;m.channels.RoughnessPBR.factor=rough}
+    api.setMaterial(m);
+  });
+}
+function setColor(hex){
+  if(!/^#[0-9a-f]{6}$/i.test(hex))return;
+  currentColor=hex.toLowerCase();document.getElementById("paintColor").value=currentColor;document.getElementById("paintHex").value=currentColor.toUpperCase();
+  document.querySelectorAll(".swatch").forEach(s=>s.classList.toggle("active",s.dataset.color.toLowerCase()===currentColor));applyPaint();
+}
+function setFinish(name){
+  document.querySelectorAll("[data-finish]").forEach(b=>b.classList.toggle("active",b.dataset.finish===name));
+  const r=document.getElementById("roughness");r.value=name==="gloss"?.22:name==="satin"?.48:.78;document.getElementById("roughOut").textContent=Math.round(Number(r.value)*100)+"%";applyPaint();
+}
+function selectByQuickSearch(){
+  const q=nrm(document.getElementById("quickSearch").value);if(!q)return;
+  let exact=CARS.find(c=>nrm(label(c))===q);
+  if(!exact){
+    const tokens=q.split(" ").filter(Boolean);
+    exact=CARS.map(c=>({c,score:tokens.reduce((s,t)=>s+(nrm(label(c)).includes(t)?1:0),0)})).sort((a,b)=>b.score-a.score)[0]?.c;
+  }
+  if(!exact)return;
+  activeFilter="all";document.querySelectorAll(".filter-btn").forEach(b=>b.classList.toggle("active",b.dataset.filter==="all"));
+  refreshBrands(exact.brand);refreshModels(exact.model);
+  const list=CARS.filter(c=>c.brand===exact.brand&&c.model===exact.model);
+  const i=list.findIndex(c=>label(c)===label(exact));if(i>=0){variantSelect.value=String(i);loadSelectedCar()}
+}
+function snapshot(){
+  if(!api||!api.getScreenShot){statusEl.className="status warn";statusEl.textContent="Wait for the 3D car to finish loading before taking a snapshot.";return}
+  statusEl.className="status";statusEl.textContent="Creating preview image…";
+  api.getScreenShot(1600,1000,"image/png",(err,result)=>{
+    if(err||!result){statusEl.className="status err";statusEl.textContent="The viewer could not create a screenshot for this model.";return}
+    const a=document.createElement("a"),car=currentCar();a.href=result;a.download=`${car.brand}-${car.model}-${car.trim}-${currentColor.slice(1)}.png`.replace(/\s+/g,"-");a.click();
+    statusEl.className="status ok";statusEl.textContent="Color preview image created.";
+  });
+}
+
+brandSelect.addEventListener("change",()=>refreshModels());
+modelSelect.addEventListener("change",()=>refreshVariants());
+variantSelect.addEventListener("change",()=>loadSelectedCar());
+document.querySelectorAll(".filter-btn").forEach(b=>b.addEventListener("click",()=>{
+  activeFilter=b.dataset.filter;document.querySelectorAll(".filter-btn").forEach(x=>x.classList.toggle("active",x===b));refreshBrands();
+}));
+document.getElementById("goSearch").addEventListener("click",selectByQuickSearch);
+document.getElementById("quickSearch").addEventListener("keydown",e=>{if(e.key==="Enter")selectByQuickSearch()});
+document.getElementById("tryAlternate").addEventListener("click",()=>loadCandidate(candidateIndex+1));
+document.getElementById("refind3D").addEventListener("click",()=>loadSelectedCar(true));
+document.getElementById("reloadCar").addEventListener("click",()=>currentResolved?loadCandidate(candidateIndex):loadSelectedCar());
+document.querySelectorAll(".swatch").forEach(s=>s.addEventListener("click",()=>setColor(s.dataset.color)));
+document.getElementById("paintColor").addEventListener("input",e=>setColor(e.target.value));
+document.getElementById("paintHex").addEventListener("change",e=>{let v=e.target.value.trim();if(!v.startsWith("#"))v="#"+v;/^#[0-9a-f]{6}$/i.test(v)?setColor(v):e.target.value=currentColor.toUpperCase()});
+document.querySelectorAll("[data-finish]").forEach(b=>b.addEventListener("click",()=>setFinish(b.dataset.finish)));
+document.getElementById("metalness").addEventListener("input",e=>{document.getElementById("metalOut").textContent=Math.round(Number(e.target.value)*100)+"%";applyPaint()});
+document.getElementById("roughness").addEventListener("input",e=>{document.getElementById("roughOut").textContent=Math.round(Number(e.target.value)*100)+"%";applyPaint()});
+document.getElementById("materialSearch").addEventListener("input",renderMaterials);
+document.getElementById("autoDetect").addEventListener("click",()=>{autoDetectPaint(false);applyPaint()});
+document.getElementById("snapshot").addEventListener("click",snapshot);document.getElementById("snapshotTop").addEventListener("click",snapshot);
+document.getElementById("resetPaint").addEventListener("click",()=>{document.getElementById("metalness").value=.70;document.getElementById("roughness").value=.22;document.getElementById("metalOut").textContent="70%";document.getElementById("roughOut").textContent="22%";setFinish("gloss");setColor("#20242a")});
+
+updateStats();
+activeFilter="popular";
+document.querySelectorAll(".filter-btn").forEach(b=>b.classList.toggle("active",b.dataset.filter==="popular"));
+refreshBrands("Toyota");
+</script>
+</body>
+</html>
